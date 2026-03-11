@@ -2,6 +2,1934 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#060a14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PlowNow">
+<meta name="description" content="On-demand snow removal for Erie, PA">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Plow Now</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:    #060a14;
+    --navy2:   #0c1220;
+    --navy3:   #111c30;
+    --ice:     #7dd4f0;
+    --ice2:    #b8eafc;
+    --ice-dim: #2e6a8a;
+    --red:     #e63946;
+    --red2:    #ff6b6b;
+    --white:   #f0f8ff;
+    --gray:    #7a8fa6;
+    --border:  #1a2840;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--navy);
+    color: var(--white);
+    font-family: 'Barlow', sans-serif;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ============ SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--navy);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(30px);
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(0);
+  }
+
+  .screen.exit-left {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  /* ============ SPLASH ============ */
+  #screen-splash {
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 50% 30%, #0f1e3a, var(--navy) 70%);
+    overflow: hidden;
+  }
+
+  .splash-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 40px;
+    z-index: 2;
+    width: 100%;
+  }
+
+  .splash-logo-ring {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: var(--navy3);
+    border: 2px solid var(--ice-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 46px;
+    box-shadow: 0 0 40px rgba(125,212,240,0.3), 0 0 80px rgba(125,212,240,0.1);
+    animation: logoPulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes logoPulse {
+    0%, 100% { box-shadow: 0 0 30px rgba(125,212,240,0.2), 0 0 60px rgba(125,212,240,0.05); }
+    50% { box-shadow: 0 0 50px rgba(125,212,240,0.5), 0 0 100px rgba(125,212,240,0.15); }
+  }
+
+  .splash-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    color: var(--ice);
+    text-align: center;
+    line-height: 1;
+  }
+
+  .splash-title span { color: var(--red); }
+
+  .splash-tagline {
+    font-size: 15px;
+    color: var(--gray);
+    text-align: center;
+    line-height: 1.6;
+    max-width: 280px;
+  }
+
+  .splash-divider {
+    width: 60px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ice-dim), transparent);
+  }
+
+  .btn-full {
+    width: 100%;
+    padding: 16px;
+    border-radius: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .btn-full:active { transform: scale(0.97); }
+
+  .btn-ice { background: var(--ice); color: var(--navy); }
+  .btn-ice:hover { background: var(--ice2); }
+
+  .btn-outline-ice {
+    background: transparent;
+    color: var(--ice);
+    border: 1.5px solid var(--ice-dim);
+  }
+
+  .btn-red { background: var(--red); color: white; }
+  .btn-outline-red {
+    background: transparent;
+    color: var(--red2);
+    border: 1.5px solid rgba(230,57,70,0.4);
+  }
+
+  .btn-gray {
+    background: var(--navy3);
+    color: var(--white);
+    border: 1px solid var(--border);
+  }
+
+  /* ============ TOP BAR ============ */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    padding-top: calc(16px + var(--safe-top));
+    background: rgba(6,10,20,0.95);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+  }
+
+  .top-bar-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--ice);
+  }
+
+  .top-bar-title span { color: var(--red); }
+
+  .top-bar-back {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .top-bar-action {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--ice);
+    cursor: pointer;
+  }
+
+  /* ============ BOTTOM NAV ============ */
+  .bottom-nav {
+    display: flex;
+    background: var(--navy2);
+    border-top: 1px solid var(--border);
+    padding: 10px 0;
+    padding-bottom: calc(10px + var(--safe-bottom));
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 4px 0;
+    transition: all 0.2s;
+  }
+
+  .nav-item:active { transform: scale(0.92); }
+
+  .nav-icon { font-size: 22px; }
+
+  .nav-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gray);
+  }
+
+  .nav-item.active .nav-label { color: var(--ice); }
+  .nav-item.active-red .nav-label { color: var(--red2); }
+
+  /* ============ SCREEN CONTENT ============ */
+  .screen-body {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ============ MAP AREA ============ */
+  .map-container {
+    height: 220px;
+    background: var(--navy3);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .map-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(125,212,240,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(125,212,240,0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .map-road-h {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: rgba(125,212,240,0.12);
+  }
+
+  .map-road-v {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: rgba(125,212,240,0.12);
+  }
+
+  .map-truck {
+    position: absolute;
+    font-size: 28px;
+    filter: drop-shadow(0 0 8px var(--ice));
+    transition: all 0.5s ease;
+    animation: truckDrive 4s ease-in-out infinite;
+  }
+
+  @keyframes truckDrive {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(12px, -6px); }
+    50% { transform: translate(20px, 0px); }
+    75% { transform: translate(8px, 6px); }
+  }
+
+  .map-pin {
+    position: absolute;
+    font-size: 24px;
+    filter: drop-shadow(0 0 6px var(--red));
+    animation: pinBounce 2s ease-in-out infinite;
+  }
+
+  @keyframes pinBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .map-badge {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(6,10,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ice);
+    letter-spacing: 1px;
+    backdrop-filter: blur(8px);
+  }
+
+  .map-weather {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(6,10,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--white);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gray);
+    margin-bottom: 12px;
+  }
+
+  /* ============ SERVICE SELECTOR ============ */
+  .service-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .service-btn {
+    background: var(--navy3);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .service-btn:active { transform: scale(0.95); }
+
+  .service-btn.selected {
+    border-color: var(--ice);
+    background: rgba(125,212,240,0.08);
+  }
+
+  .service-btn-icon { font-size: 24px; margin-bottom: 6px; }
+
+  .service-btn-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--gray);
+  }
+
+  .service-btn.selected .service-btn-label { color: var(--ice); }
+
+  /* Size selector */
+  .size-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .size-btn {
+    background: var(--navy3);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .size-btn.selected {
+    border-color: var(--ice);
+    background: rgba(125,212,240,0.08);
+  }
+
+  .size-btn-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray);
+  }
+
+  .size-btn.selected .size-btn-label { color: var(--ice); }
+  .size-btn-sub { font-size: 10px; color: var(--gray); margin-top: 2px; }
+
+  /* ============ PRICE ROW ============ */
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(125,212,240,0.06);
+    border: 1px solid rgba(125,212,240,0.15);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+
+  .price-label { font-size: 13px; color: var(--gray); }
+  .price-sub { font-size: 10px; color: var(--gray); opacity: 0.7; margin-top: 2px; }
+
+  .price-amount {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ice);
+    line-height: 1;
+  }
+
+  /* ============ DRIVER CARD ============ */
+  .driver-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .driver-avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--navy2);
+    border: 2px solid var(--ice-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .driver-info { flex: 1; }
+
+  .driver-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1;
+  }
+
+  .driver-stars { color: #ffd700; font-size: 12px; margin: 3px 0; }
+  .driver-sub { font-size: 11px; color: var(--gray); letter-spacing: 0.5px; }
+
+  .eta-box {
+    background: rgba(125,212,240,0.12);
+    border: 1px solid var(--ice-dim);
+    border-radius: 10px;
+    padding: 8px 12px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .eta-num {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--ice);
+    line-height: 1;
+  }
+
+  .eta-unit { font-size: 9px; color: var(--gray); letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ============ PROGRESS ============ */
+  .progress-track {
+    height: 4px;
+    background: var(--navy3);
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ice-dim), var(--ice));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+
+  /* ============ STATUS STEPS ============ */
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .step-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--gray);
+  }
+
+  .step-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+
+  .step-dot.done { background: var(--ice); border-color: var(--ice); }
+  .step-dot.active { background: var(--red); border-color: var(--red); box-shadow: 0 0 8px var(--red); }
+
+  .step-row.done-step { color: var(--white); }
+  .step-row.active-step { color: var(--red2); font-weight: 600; }
+
+  /* ============ ACTION BUTTONS ============ */
+  .action-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .action-btn:active { transform: scale(0.96); }
+
+  /* ============ RECEIPT ============ */
+  .receipt {
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 13px;
+    color: var(--gray);
+    border-bottom: 1px solid rgba(26,40,64,0.6);
+  }
+
+  .receipt-row:last-child { border-bottom: none; }
+  .receipt-row.total { color: var(--white); font-weight: 600; font-size: 15px; padding-top: 12px; }
+  .receipt-row span:last-child { color: var(--ice); }
+
+  /* ============ STARS RATING ============ */
+  .stars-rating {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .star-btn {
+    font-size: 36px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    filter: grayscale(1) opacity(0.4);
+  }
+
+  .star-btn.active {
+    filter: none;
+    transform: scale(1.1);
+  }
+
+  .star-btn:active { transform: scale(0.9); }
+
+  /* ============ DRIVER DASHBOARD ============ */
+  .online-banner {
+    background: rgba(230,57,70,0.1);
+    border: 1px solid rgba(230,57,70,0.25);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .online-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .status-dot.offline { background: var(--gray); box-shadow: none; animation: none; }
+
+  .status-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--red2);
+  }
+
+  .toggle-pill {
+    width: 52px; height: 28px;
+    background: var(--red);
+    border-radius: 14px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+
+  .toggle-pill.off { background: var(--border); }
+
+  .toggle-pill::after {
+    content: '';
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: right 0.3s;
+  }
+
+  .toggle-pill.off::after { right: auto; left: 4px; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .stat-box {
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--red2);
+    line-height: 1;
+  }
+
+  .stat-key {
+    font-size: 10px;
+    color: var(--gray);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ============ JOB ALERT ============ */
+  .job-alert-card {
+    background: linear-gradient(135deg, #150308, var(--navy2));
+    border: 1.5px solid var(--red);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .job-alert-card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(230,57,70,0.2), transparent 70%);
+  }
+
+  .alert-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--red2);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .alert-address {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+
+  .alert-detail { font-size: 13px; color: var(--gray); margin-bottom: 12px; }
+
+  .alert-pay {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--red2);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  .alert-timer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 12px;
+    letter-spacing: 1px;
+  }
+
+  .timer-val { color: var(--red2); font-weight: 700; font-size: 14px; }
+
+  /* ============ EARNINGS ============ */
+  .earnings-header {
+    text-align: center;
+    padding: 20px;
+    background: var(--navy2);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+
+  .earnings-amount {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--red2);
+    line-height: 1;
+  }
+
+  .earnings-label { font-size: 11px; color: var(--gray); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .earnings-change { font-size: 13px; color: var(--ice); margin-top: 6px; }
+
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 80px;
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 12px 0;
+    margin-bottom: 8px;
+  }
+
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+  .bar-fill {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    background: var(--red);
+    opacity: 0.6;
+    transition: height 0.5s ease;
+  }
+
+  .bar-fill.peak { opacity: 1; background: var(--red2); }
+  .bar-day { font-size: 9px; color: var(--gray); padding-bottom: 6px; }
+
+  /* ============ JOB LIST ============ */
+  .job-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+
+  .job-addr {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  .job-meta { font-size: 11px; color: var(--gray); margin-top: 2px; }
+  .job-pay-val {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--red2);
+  }
+
+  /* ============ PROFILE ============ */
+  .profile-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .profile-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--navy3);
+    border: 2px solid var(--ice-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+
+  .profile-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .profile-email { font-size: 13px; color: var(--gray); }
+  .profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(125,212,240,0.1);
+    border: 1px solid var(--ice-dim);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 10px;
+    color: var(--ice);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .menu-item:active { background: var(--navy3); }
+
+  .menu-item-left { display: flex; align-items: center; gap: 14px; }
+  .menu-icon { font-size: 20px; }
+  .menu-label { font-size: 15px; color: var(--white); font-weight: 500; }
+  .menu-arrow { color: var(--gray); font-size: 16px; }
+
+  /* ============ ADDRESS INPUT ============ */
+  .address-input-wrap {
+    background: var(--navy3);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .address-input-wrap:active { border-color: var(--ice-dim); }
+
+  .address-icon { font-size: 20px; flex-shrink: 0; }
+
+  .address-text {
+    flex: 1;
+    font-size: 14px;
+    color: var(--white);
+  }
+
+  .address-sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--navy3);
+    border: 1px solid var(--ice-dim);
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--ice);
+    font-weight: 600;
+    letter-spacing: 1px;
+    z-index: 200;
+    opacity: 0;
+    transition: all 0.3s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ============ MODE TOGGLE ============ */
+  .mode-toggle {
+    display: flex;
+    background: var(--navy3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 20px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 7px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--gray);
+  }
+
+  .mode-btn.active-customer { background: var(--ice); color: var(--navy); }
+  .mode-btn.active-driver { background: var(--red); color: white; }
+
+  /* ============ CONFIRMATION SCREEN ============ */
+  .confirm-circle {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: rgba(125,212,240,0.1);
+    border: 2px solid var(--ice-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    margin: 20px auto 16px;
+    box-shadow: 0 0 30px rgba(125,212,240,0.2);
+  }
+
+  .confirm-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ice);
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .confirm-sub {
+    font-size: 13px;
+    color: var(--gray);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  /* ============ INSTALL BANNER ============ */
+  .install-banner {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--navy2);
+    border-top: 1px solid var(--ice-dim);
+    padding: 16px 20px;
+    padding-bottom: calc(16px + var(--safe-bottom));
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 300;
+    transform: translateY(100%);
+    transition: transform 0.4s ease;
+  }
+
+  .install-banner.show { transform: translateY(0); }
+
+  .install-icon { font-size: 28px; flex-shrink: 0; }
+
+  .install-text { flex: 1; }
+  .install-title { font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 700; color: var(--ice); }
+  .install-sub { font-size: 12px; color: var(--gray); }
+
+  .install-btn {
+    padding: 10px 20px;
+    background: var(--ice);
+    color: var(--navy);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .install-close {
+    color: var(--gray);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ========== SPLASH SCREEN ========== -->
+  <div class="screen active" id="screen-splash">
+    <canvas class="splash-particles" id="splashCanvas"></canvas>
+    <div class="splash-content">
+      <div class="splash-logo-ring">❄️</div>
+      <div class="splash-title">PLOW<span>NOW</span></div>
+      <p class="splash-tagline">On-demand snow removal for Erie, PA. Book a plow driver in 60 seconds.</p>
+      <div class="splash-divider"></div>
+      <div style="width:100%;display:flex;flex-direction:column;gap:12px;">
+        <button class="btn-full btn-ice" onclick="goTo('screen-customer-home')">
+          ❄️ I Need Snow Removed
+        </button>
+        <button class="btn-full btn-outline-ice" onclick="goTo('screen-driver-dashboard')">
+          🚜 I'm a Plow Driver
+        </button>
+      </div>
+      <p style="font-size:11px;color:var(--gray);letter-spacing:1px;">Erie, PA · Launching Winter 2027</p>
+    </div>
+  </div>
+
+  <!-- ========== CUSTOMER HOME ========== -->
+  <div class="screen" id="screen-customer-home">
+    <div class="top-bar">
+      <div class="top-bar-title">PLOW<span>NOW</span></div>
+      <div style="font-size:12px;color:var(--gray);">📍 Erie, PA</div>
+      <div class="top-bar-action" onclick="goTo('screen-profile')">👤</div>
+    </div>
+
+    <div class="screen-body">
+      <div class="mode-toggle">
+        <div class="mode-btn active-customer">❄️ Customer</div>
+        <div class="mode-btn" onclick="goTo('screen-driver-dashboard')">🚜 Driver</div>
+      </div>
+
+      <div class="map-container">
+        <div class="map-grid-bg"></div>
+        <div class="map-road-h" style="top:33%"></div>
+        <div class="map-road-h" style="top:66%"></div>
+        <div class="map-road-v" style="left:25%"></div>
+        <div class="map-road-v" style="left:60%"></div>
+        <div class="map-truck" style="top:38%;left:42%">🚜</div>
+        <div class="map-truck" style="top:20%;left:65%;font-size:22px;animation-delay:1s">🚜</div>
+        <div class="map-pin" style="top:55%;left:55%">📍</div>
+        <div class="map-badge">📍 123 Peach St, Erie PA</div>
+        <div class="map-weather">❄️ 4" overnight</div>
+      </div>
+
+      <div class="address-input-wrap" onclick="showToast('Address confirmed!')">
+        <div class="address-icon">🏠</div>
+        <div>
+          <div class="address-text">123 Peach Street</div>
+          <div class="address-sub">Erie, PA 16501 · Tap to change</div>
+        </div>
+        <div style="color:var(--ice);font-size:16px;">›</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Select Service</div>
+        <div class="service-grid">
+          <div class="service-btn selected" onclick="selectService(this)">
+            <div class="service-btn-icon">🚜</div>
+            <div class="service-btn-label">Driveway</div>
+          </div>
+          <div class="service-btn" onclick="selectService(this)">
+            <div class="service-btn-icon">🚶</div>
+            <div class="service-btn-label">Walkway</div>
+          </div>
+          <div class="service-btn" onclick="selectService(this)">
+            <div class="service-btn-icon">🅿️</div>
+            <div class="service-btn-label">Lot</div>
+          </div>
+        </div>
+        <div class="card-title">Property Size</div>
+        <div class="size-grid">
+          <div class="size-btn selected" onclick="selectSize(this)">
+            <div class="size-btn-label">Small</div>
+            <div class="size-btn-sub">1 car</div>
+          </div>
+          <div class="size-btn" onclick="selectSize(this)">
+            <div class="size-btn-label">Medium</div>
+            <div class="size-btn-sub">2 cars</div>
+          </div>
+          <div class="size-btn" onclick="selectSize(this)">
+            <div class="size-btn-label">Large</div>
+            <div class="size-btn-sub">3+ cars</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="price-row">
+        <div>
+          <div class="price-label">Estimated Price</div>
+          <div class="price-sub">Final price confirmed before booking</div>
+        </div>
+        <div class="price-amount">$45</div>
+      </div>
+
+      <button class="btn-full btn-ice" onclick="goTo('screen-searching')" style="margin-bottom:80px;">
+        🚜 Find a Plow Driver
+      </button>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active" onclick="goTo('screen-customer-home')">
+        <div class="nav-icon">🏠</div>
+        <div class="nav-label">Home</div>
+      </div>
+      <div class="nav-item" onclick="goTo('screen-orders')">
+        <div class="nav-icon">📋</div>
+        <div class="nav-label">Orders</div>
+      </div>
+      <div class="nav-item" onclick="showToast('Payment coming soon!')">
+        <div class="nav-icon">💳</div>
+        <div class="nav-label">Pay</div>
+      </div>
+      <div class="nav-item" onclick="goTo('screen-profile')">
+        <div class="nav-icon">👤</div>
+        <div class="nav-label">Profile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SEARCHING SCREEN ========== -->
+  <div class="screen" id="screen-searching">
+    <div class="top-bar">
+      <div class="top-bar-back" onclick="goTo('screen-customer-home')">‹</div>
+      <div class="top-bar-title">FINDING DRIVER</div>
+      <div></div>
+    </div>
+
+    <div class="screen-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;">
+      <div style="width:120px;height:120px;border-radius:50%;border:2px solid var(--ice-dim);display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:24px;position:relative;">
+        🚜
+        <div style="position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(125,212,240,0.2);animation:ringExpand 2s ease-out infinite;"></div>
+        <div style="position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(125,212,240,0.15);animation:ringExpand 2s ease-out 0.7s infinite;"></div>
+      </div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--ice);letter-spacing:2px;margin-bottom:8px;">Searching Nearby...</div>
+      <div style="font-size:14px;color:var(--gray);text-align:center;margin-bottom:40px;">Finding the best available driver in your area</div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;">
+        <div style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--gray);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--ice);"></div>3 drivers nearby
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--gray);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--ice);"></div>Checking availability...
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--gray);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--border);"></div>Confirming match...
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:20px;">
+      <button class="btn-full btn-gray" onclick="goTo('screen-customer-home')" style="margin-bottom:20px;">Cancel Search</button>
+      <button class="btn-full btn-ice" onclick="goTo('screen-tracking')" style="margin-bottom:20px;">
+        ✓ Driver Found — Track Now
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== TRACKING SCREEN ========== -->
+  <div class="screen" id="screen-tracking">
+    <div class="top-bar">
+      <div class="top-bar-back" onclick="goTo('screen-customer-home')">‹</div>
+      <div class="top-bar-title">LIVE TRACKING</div>
+      <div class="top-bar-action" onclick="showToast('Support contacted!')">Help</div>
+    </div>
+
+    <div class="screen-body">
+      <div class="map-container" style="height:200px;">
+        <div class="map-grid-bg"></div>
+        <div class="map-road-h" style="top:40%"></div>
+        <div class="map-road-h" style="top:70%"></div>
+        <div class="map-road-v" style="left:30%"></div>
+        <div class="map-road-v" style="left:65%"></div>
+        <div class="map-truck" style="top:35%;left:38%">🚜</div>
+        <div class="map-pin" style="top:55%;left:62%">📍</div>
+        <div class="map-badge">🟢 Driver En Route</div>
+      </div>
+
+      <div class="driver-row">
+        <div class="driver-avatar">👨</div>
+        <div class="driver-info">
+          <div class="driver-name">Mike T.</div>
+          <div class="driver-stars">★★★★★</div>
+          <div class="driver-sub">4.9 · 312 jobs · RAM 2500</div>
+        </div>
+        <div class="eta-box">
+          <div class="eta-num">12</div>
+          <div class="eta-unit">MIN</div>
+        </div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" style="width:55%"></div>
+      </div>
+
+      <div class="steps-list">
+        <div class="step-row done-step"><div class="step-dot done"></div>Order Confirmed</div>
+        <div class="step-row done-step"><div class="step-dot done"></div>Driver Assigned — Mike T.</div>
+        <div class="step-row active-step"><div class="step-dot active"></div>Driver En Route · 12 min away</div>
+        <div class="step-row"><div class="step-dot"></div>Service In Progress</div>
+        <div class="step-row"><div class="step-dot"></div>Complete ✓</div>
+      </div>
+
+      <div class="action-row">
+        <button class="action-btn btn-ice" onclick="showToast('Calling Mike...')">📞 Call</button>
+        <button class="action-btn btn-outline-ice" onclick="showToast('Opening chat...')">💬 Text</button>
+      </div>
+
+      <button class="btn-full btn-gray" onclick="showToast('Cancellation policy applies after driver dispatched')" style="margin-bottom:80px;">
+        Cancel Order
+      </button>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-customer-home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item active" onclick="goTo('screen-orders')"><div class="nav-icon">📋</div><div class="nav-label">Orders</div></div>
+      <div class="nav-item" onclick="showToast('Payment coming soon!')"><div class="nav-icon">💳</div><div class="nav-label">Pay</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== COMPLETE SCREEN ========== -->
+  <div class="screen" id="screen-complete">
+    <div class="top-bar">
+      <div class="top-bar-title">PLOW<span>NOW</span></div>
+      <div></div>
+      <div></div>
+    </div>
+
+    <div class="screen-body">
+      <div class="confirm-circle">✅</div>
+      <div class="confirm-title">PLOW COMPLETE!</div>
+      <div class="confirm-sub">Your driveway is clear — enjoy the day</div>
+
+      <div class="receipt">
+        <div class="receipt-row"><span>Service</span><span>Driveway — Small</span></div>
+        <div class="receipt-row"><span>Driver</span><span>Mike T.</span></div>
+        <div class="receipt-row"><span>Base Rate</span><span>$35.00</span></div>
+        <div class="receipt-row"><span>Platform Fee</span><span>$5.00</span></div>
+        <div class="receipt-row"><span>Tip</span><span>$5.00</span></div>
+        <div class="receipt-row total"><span>Total Charged</span><span>$45.00</span></div>
+      </div>
+
+      <div class="card" style="text-align:center;">
+        <div class="card-title" style="text-align:center;">Rate Mike T.</div>
+        <div class="stars-rating" id="starRating">
+          <div class="star-btn active" onclick="rateStar(1)">⭐</div>
+          <div class="star-btn active" onclick="rateStar(2)">⭐</div>
+          <div class="star-btn active" onclick="rateStar(3)">⭐</div>
+          <div class="star-btn active" onclick="rateStar(4)">⭐</div>
+          <div class="star-btn active" onclick="rateStar(5)">⭐</div>
+        </div>
+      </div>
+
+      <button class="btn-full btn-ice" onclick="showToast('Review submitted! Thanks!')" style="margin-bottom:12px;">
+        Submit Review
+      </button>
+      <button class="btn-full btn-outline-ice" onclick="goTo('screen-customer-home')" style="margin-bottom:80px;">
+        Book Again
+      </button>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-customer-home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item active"><div class="nav-icon">📋</div><div class="nav-label">Orders</div></div>
+      <div class="nav-item" onclick="showToast('Payment coming soon!')"><div class="nav-icon">💳</div><div class="nav-label">Pay</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== ORDERS SCREEN ========== -->
+  <div class="screen" id="screen-orders">
+    <div class="top-bar">
+      <div class="top-bar-back" onclick="goTo('screen-customer-home')">‹</div>
+      <div class="top-bar-title">MY ORDERS</div>
+      <div></div>
+    </div>
+
+    <div class="screen-body">
+      <div style="margin-bottom:16px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">Active</div>
+        <div class="job-list-item" onclick="goTo('screen-tracking')" style="border-color:var(--ice-dim);">
+          <div>
+            <div class="job-addr">123 Peach St — Driveway</div>
+            <div class="job-meta">🟢 Mike T. En Route · 12 min</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="job-pay-val" style="color:var(--ice);">$45</div>
+            <div class="job-meta">Track →</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">Past Orders</div>
+        <div class="job-list-item" onclick="goTo('screen-complete')">
+          <div>
+            <div class="job-addr">123 Peach St — Driveway</div>
+            <div class="job-meta">Mar 8 · Mike T. · ★★★★★</div>
+          </div>
+          <div class="job-pay-val">$45</div>
+        </div>
+        <div class="job-list-item">
+          <div>
+            <div class="job-addr">123 Peach St — Walkway</div>
+            <div class="job-meta">Feb 22 · Dave R. · ★★★★★</div>
+          </div>
+          <div class="job-pay-val">$25</div>
+        </div>
+        <div class="job-list-item">
+          <div>
+            <div class="job-addr">123 Peach St — Driveway</div>
+            <div class="job-meta">Feb 14 · Mike T. · ★★★★★</div>
+          </div>
+          <div class="job-pay-val">$45</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-customer-home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item active"><div class="nav-icon">📋</div><div class="nav-label">Orders</div></div>
+      <div class="nav-item" onclick="showToast('Payment coming soon!')"><div class="nav-icon">💳</div><div class="nav-label">Pay</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== PROFILE SCREEN ========== -->
+  <div class="screen" id="screen-profile">
+    <div class="top-bar">
+      <div class="top-bar-back" onclick="goTo('screen-customer-home')">‹</div>
+      <div class="top-bar-title">PROFILE</div>
+      <div class="top-bar-action" onclick="showToast('Settings saved!')">Edit</div>
+    </div>
+
+    <div class="screen-body">
+      <div class="profile-header">
+        <div class="profile-avatar">👤</div>
+        <div>
+          <div class="profile-name">Shane F.</div>
+          <div class="profile-email">shaneeferrara@gmail.com</div>
+          <div class="profile-badge">⭐ Founding Member</div>
+        </div>
+      </div>
+
+      <div class="menu-item" onclick="goTo('screen-orders')">
+        <div class="menu-item-left"><div class="menu-icon">📋</div><div class="menu-label">My Orders</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="showToast('Addresses coming soon!')">
+        <div class="menu-item-left"><div class="menu-icon">📍</div><div class="menu-label">Saved Addresses</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="showToast('Payment coming soon!')">
+        <div class="menu-item-left"><div class="menu-icon">💳</div><div class="menu-label">Payment Methods</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="showToast('Notifications coming soon!')">
+        <div class="menu-item-left"><div class="menu-icon">🔔</div><div class="menu-label">Notifications</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="showToast('Support coming soon!')">
+        <div class="menu-item-left"><div class="menu-icon">💬</div><div class="menu-label">Help & Support</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="goTo('screen-driver-dashboard')">
+        <div class="menu-item-left"><div class="menu-icon">🚜</div><div class="menu-label">Switch to Driver Mode</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="goTo('screen-splash')" style="margin-bottom:80px;">
+        <div class="menu-item-left"><div class="menu-icon">🚪</div><div class="menu-label">Sign Out</div></div>
+        <div class="menu-arrow">›</div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-customer-home')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item" onclick="goTo('screen-orders')"><div class="nav-icon">📋</div><div class="nav-label">Orders</div></div>
+      <div class="nav-item" onclick="showToast('Payment coming soon!')"><div class="nav-icon">💳</div><div class="nav-label">Pay</div></div>
+      <div class="nav-item active"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== DRIVER DASHBOARD ========== -->
+  <div class="screen" id="screen-driver-dashboard">
+    <div class="top-bar">
+      <div class="top-bar-title" style="color:var(--red2);">PLOW<span style="color:var(--ice);">NOW</span></div>
+      <div style="font-size:12px;color:var(--gray);">Driver Mode</div>
+      <div class="top-bar-action" onclick="goTo('screen-profile')" style="color:var(--red2);">👤</div>
+    </div>
+
+    <div class="screen-body">
+      <div class="mode-toggle">
+        <div class="mode-btn" onclick="goTo('screen-customer-home')">❄️ Customer</div>
+        <div class="mode-btn active-driver">🚜 Driver</div>
+      </div>
+
+      <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--white);margin-bottom:4px;">Hey, Mike 👋</div>
+      <div style="font-size:13px;color:var(--gray);margin-bottom:16px;">Erie, PA · Snow: 4" overnight · Peak demand ⚡</div>
+
+      <div class="online-banner">
+        <div class="online-status">
+          <div class="status-dot" id="statusDot"></div>
+          <div>
+            <div class="status-text" id="statusText">ONLINE</div>
+            <div style="font-size:11px;color:var(--gray);">Tap to go offline</div>
+          </div>
+        </div>
+        <div class="toggle-pill" id="driverToggle" onclick="toggleDriverStatus()"></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-val">$183</div><div class="stat-key">Today</div></div>
+        <div class="stat-box"><div class="stat-val">6</div><div class="stat-key">Jobs Done</div></div>
+        <div class="stat-box"><div class="stat-val">4.9</div><div class="stat-key">Rating</div></div>
+        <div class="stat-box"><div class="stat-val">3</div><div class="stat-key">Nearby</div></div>
+      </div>
+
+      <div class="map-container" style="height:160px;">
+        <div class="map-grid-bg"></div>
+        <div class="map-road-h" style="top:50%"></div>
+        <div class="map-road-v" style="left:50%"></div>
+        <div class="map-truck" style="top:38%;left:45%">🚜</div>
+        <div class="map-pin" style="top:25%;left:30%;font-size:18px;">📍</div>
+        <div class="map-pin" style="top:55%;left:68%;font-size:16px;">📍</div>
+        <div class="map-badge">🗺 3 jobs in your area</div>
+      </div>
+
+      <button class="btn-full btn-red" onclick="goTo('screen-job-alert')" style="margin-bottom:80px;">
+        🔔 View Incoming Jobs
+      </button>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active-red" onclick="goTo('screen-driver-dashboard')">
+        <div class="nav-icon">🏠</div><div class="nav-label" style="color:var(--red2);">Home</div>
+      </div>
+      <div class="nav-item" onclick="goTo('screen-job-alert')">
+        <div class="nav-icon">📋</div><div class="nav-label">Jobs</div>
+      </div>
+      <div class="nav-item" onclick="goTo('screen-earnings')">
+        <div class="nav-icon">💰</div><div class="nav-label">Earnings</div>
+      </div>
+      <div class="nav-item" onclick="goTo('screen-profile')">
+        <div class="nav-icon">👤</div><div class="nav-label">Profile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== JOB ALERT ========== -->
+  <div class="screen" id="screen-job-alert">
+    <div class="top-bar">
+      <div class="top-bar-back" onclick="goTo('screen-driver-dashboard')">‹</div>
+      <div class="top-bar-title" style="color:var(--red2);">NEW JOB</div>
+      <div></div>
+    </div>
+
+    <div class="screen-body">
+      <div class="map-container" style="height:180px;">
+        <div class="map-grid-bg"></div>
+        <div class="map-road-h" style="top:45%"></div>
+        <div class="map-road-v" style="left:40%"></div>
+        <div class="map-truck" style="top:30%;left:35%">🚜</div>
+        <div class="map-pin" style="top:50%;left:62%">📍</div>
+        <div style="position:absolute;top:10px;right:10px;background:rgba(230,57,70,0.2);border:1px solid var(--red);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--red2);font-weight:700;letter-spacing:1px;">1.2 MI</div>
+        <div class="map-badge">📍 847 French St, Erie</div>
+      </div>
+
+      <div class="job-alert-card">
+        <div class="alert-label">🔔 New Job Request</div>
+        <div class="alert-address">847 French Street, Erie</div>
+        <div class="alert-detail">Driveway · Medium · ~45 min · Snow 6" · 1.2 miles away</div>
+        <div class="alert-pay">$62</div>
+        <div class="action-row">
+          <button class="action-btn btn-red" onclick="goTo('screen-active-job')">✓ Accept</button>
+          <button class="action-btn btn-outline-red" onclick="goTo('screen-driver-dashboard')">✗ Decline</button>
+        </div>
+        <div class="alert-timer">Expires in <span class="timer-val" id="timerVal">28s</span> — next driver gets it</div>
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">Also Nearby</div>
+      <div class="job-list-item">
+        <div><div class="job-addr">512 State St</div><div class="job-meta">Walkway · Small · 0.8mi</div></div>
+        <div class="job-pay-val">$28</div>
+      </div>
+      <div class="job-list-item" style="margin-bottom:80px;">
+        <div><div class="job-addr">1204 Peach St</div><div class="job-meta">Parking Lot · 1.5mi</div></div>
+        <div class="job-pay-val">$95</div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-driver-dashboard')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item active-red"><div class="nav-icon">📋</div><div class="nav-label" style="color:var(--red2);">Jobs</div></div>
+      <div class="nav-item" onclick="goTo('screen-earnings')"><div class="nav-icon">💰</div><div class="nav-label">Earnings</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== ACTIVE JOB ========== -->
+  <div class="screen" id="screen-active-job">
+    <div class="top-bar">
+      <div style="width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:blink 1.5s infinite;"></div>
+      <div class="top-bar-title" style="color:var(--red2);">IN PROGRESS</div>
+      <div class="top-bar-action" onclick="showToast('Support contacted!')" style="color:var(--red2);">Help</div>
+    </div>
+
+    <div class="screen-body">
+      <div class="map-container" style="height:200px;">
+        <div class="map-grid-bg"></div>
+        <div class="map-road-h" style="top:50%"></div>
+        <div class="map-road-v" style="left:50%"></div>
+        <div class="map-truck" style="top:40%;left:42%">🚜</div>
+        <div class="map-badge">📍 847 French St — Arrived</div>
+        <div style="position:absolute;top:12px;right:12px;background:rgba(230,57,70,0.2);border:1px solid var(--red);border-radius:8px;padding:6px 12px;font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--red2);">$62</div>
+      </div>
+
+      <div class="driver-row" style="border-color:rgba(230,57,70,0.3);">
+        <div class="driver-avatar" style="border-color:rgba(230,57,70,0.5);">🏠</div>
+        <div class="driver-info">
+          <div class="driver-name">847 French Street</div>
+          <div style="font-size:12px;color:var(--gray);margin-top:3px;">Sarah M. · Driveway, Medium</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px;">📞 (814) 555-0192</div>
+        </div>
+        <div class="eta-box" style="background:rgba(230,57,70,0.12);border-color:var(--red);">
+          <div class="eta-num" style="color:var(--red2);">$62</div>
+          <div class="eta-unit">PAYOUT</div>
+        </div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" style="width:40%;background:linear-gradient(90deg,var(--red),var(--red2));"></div>
+      </div>
+
+      <div class="steps-list">
+        <div class="step-row done-step"><div class="step-dot done" style="background:var(--red2);border-color:var(--red2);"></div>Arrived at location</div>
+        <div class="step-row active-step"><div class="step-dot active"></div>Plowing in progress</div>
+        <div class="step-row"><div class="step-dot"></div>Final pass & cleanup</div>
+        <div class="step-row"><div class="step-dot"></div>Mark complete</div>
+      </div>
+
+      <button class="btn-full btn-red" onclick="goTo('screen-job-complete')" style="margin-bottom:12px;">
+        ✓ Mark Job Complete
+      </button>
+      <button class="btn-full btn-gray" onclick="showToast('Support contacted!')" style="margin-bottom:80px;">
+        Having Issues? Contact Support
+      </button>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-driver-dashboard')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item active-red"><div class="nav-icon">📋</div><div class="nav-label" style="color:var(--red2);">Jobs</div></div>
+      <div class="nav-item" onclick="goTo('screen-earnings')"><div class="nav-icon">💰</div><div class="nav-label">Earnings</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== JOB COMPLETE (DRIVER) ========== -->
+  <div class="screen" id="screen-job-complete">
+    <div class="top-bar">
+      <div class="top-bar-title" style="color:var(--red2);">JOB COMPLETE</div>
+      <div></div><div></div>
+    </div>
+
+    <div class="screen-body">
+      <div class="confirm-circle" style="background:rgba(230,57,70,0.1);border-color:var(--red);">💰</div>
+      <div class="confirm-title" style="color:var(--red2);">PAYOUT SENT!</div>
+      <div class="confirm-sub">$62.00 will be in your account by Friday</div>
+
+      <div class="receipt">
+        <div class="receipt-row"><span>Job</span><span>847 French St — Driveway</span></div>
+        <div class="receipt-row"><span>Customer</span><span>Sarah M.</span></div>
+        <div class="receipt-row"><span>Duration</span><span>42 min</span></div>
+        <div class="receipt-row"><span>Base Pay</span><span>$52.00</span></div>
+        <div class="receipt-row"><span>Customer Tip</span><span>$10.00</span></div>
+        <div class="receipt-row total"><span>Your Payout</span><span>$62.00</span></div>
+      </div>
+
+      <button class="btn-full btn-red" onclick="goTo('screen-driver-dashboard')" style="margin-bottom:12px;">
+        Find Next Job 🚜
+      </button>
+      <button class="btn-full btn-gray" onclick="goTo('screen-earnings')" style="margin-bottom:80px;">
+        View Earnings
+      </button>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-driver-dashboard')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item" onclick="goTo('screen-job-alert')"><div class="nav-icon">📋</div><div class="nav-label">Jobs</div></div>
+      <div class="nav-item active-red" onclick="goTo('screen-earnings')"><div class="nav-icon">💰</div><div class="nav-label" style="color:var(--red2);">Earnings</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- ========== EARNINGS ========== -->
+  <div class="screen" id="screen-earnings">
+    <div class="top-bar">
+      <div class="top-bar-back" onclick="goTo('screen-driver-dashboard')">‹</div>
+      <div class="top-bar-title" style="color:var(--red2);">EARNINGS</div>
+      <div></div>
+    </div>
+
+    <div class="screen-body">
+      <div class="earnings-header">
+        <div class="earnings-label">This Week</div>
+        <div class="earnings-amount">$847</div>
+        <div class="earnings-change">↑ 23% vs last week</div>
+      </div>
+
+      <div class="bar-chart">
+        <div class="bar-col"><div class="bar-fill" style="height:40%"></div><div class="bar-day">M</div></div>
+        <div class="bar-col"><div class="bar-fill" style="height:55%"></div><div class="bar-day">T</div></div>
+        <div class="bar-col"><div class="bar-fill" style="height:45%"></div><div class="bar-day">W</div></div>
+        <div class="bar-col"><div class="bar-fill peak" style="height:95%"></div><div class="bar-day">Th</div></div>
+        <div class="bar-col"><div class="bar-fill" style="height:75%"></div><div class="bar-day">F</div></div>
+        <div class="bar-col"><div class="bar-fill" style="height:60%"></div><div class="bar-day">Sa</div></div>
+        <div class="bar-col"><div class="bar-fill" style="height:25%"></div><div class="bar-day">Su</div></div>
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-bottom:10px;">Recent Jobs</div>
+
+      <div class="job-list-item">
+        <div><div class="job-addr">847 French St</div><div class="job-meta">Today · Driveway · 42 min</div></div>
+        <div class="job-pay-val">$62</div>
+      </div>
+      <div class="job-list-item">
+        <div><div class="job-addr">512 State St</div><div class="job-meta">Today · Walkway · 18 min</div></div>
+        <div class="job-pay-val">$28</div>
+      </div>
+      <div class="job-list-item">
+        <div><div class="job-addr">1204 Peach St</div><div class="job-meta">Yesterday · Parking Lot</div></div>
+        <div class="job-pay-val">$95</div>
+      </div>
+      <div class="job-list-item">
+        <div><div class="job-addr">330 W 8th St</div><div class="job-meta">Yesterday · Driveway</div></div>
+        <div class="job-pay-val">$45</div>
+      </div>
+      <div class="job-list-item" style="margin-bottom:80px;">
+        <div><div class="job-addr">712 Parade St</div><div class="job-meta">Feb 28 · Driveway</div></div>
+        <div class="job-pay-val">$45</div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo('screen-driver-dashboard')"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
+      <div class="nav-item" onclick="goTo('screen-job-alert')"><div class="nav-icon">📋</div><div class="nav-label">Jobs</div></div>
+      <div class="nav-item active-red"><div class="nav-icon">💰</div><div class="nav-label" style="color:var(--red2);">Earnings</div></div>
+      <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon">👤</div><div class="nav-label">Profile</div></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Install Banner -->
+  <div class="install-banner" id="installBanner">
+    <div class="install-icon">❄️</div>
+    <div class="install-text">
+      <div class="install-title">Add Plow Now to Home Screen</div>
+      <div class="install-sub">Install the app for quick access</div>
+    </div>
+    <button class="install-btn" id="installBtn">Install</button>
+    <div class="install-close" onclick="hideInstall()">✕</div>
+  </div>
+
+</div>
+
+<script>
+  // ============ NAVIGATION ============
+  let currentScreen = 'screen-splash';
+
+  function goTo(screenId) {
+    const current = document.getElementById(currentScreen);
+    const next = document.getElementById(screenId);
+    if (!next || screenId === currentScreen) return;
+
+    current.classList.add('exit-left');
+    current.classList.remove('active');
+    setTimeout(() => { current.classList.remove('exit-left'); }, 350);
+
+    next.style.transform = 'translateX(30px)';
+    next.classList.add('active');
+    setTimeout(() => { next.style.transform = ''; }, 10);
+
+    currentScreen = screenId;
+    next.scrollTop = 0;
+  }
+
+  // ============ SERVICE SELECTION ============
+  function selectService(el) {
+    el.closest('.service-grid').querySelectorAll('.service-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    updatePrice();
+  }
+
+  function selectSize(el) {
+    el.closest('.size-grid').querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    updatePrice();
+  }
+
+  function updatePrice() {
+    const prices = { 0: [35, 55, 85], 1: [20, 30, 45], 2: [85, 120, 180] };
+    const serviceIdx = [...document.querySelectorAll('.service-btn')].findIndex(b => b.classList.contains('selected'));
+    const sizeIdx = [...document.querySelectorAll('.size-btn')].findIndex(b => b.classList.contains('selected'));
+    const p = prices[serviceIdx] ? prices[serviceIdx][sizeIdx] || 45 : 45;
+    document.querySelector('.price-amount').textContent = '$' + p;
+  }
+
+  // ============ TOAST ============
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ============ STAR RATING ============
+  function rateStar(n) {
+    document.querySelectorAll('.star-btn').forEach((s, i) => {
+      s.classList.toggle('active', i < n);
+    });
+  }
+
+  // ============ DRIVER TOGGLE ============
+  let driverOnline = true;
+
+  function toggleDriverStatus() {
+    driverOnline = !driverOnline;
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    const toggle = document.getElementById('driverToggle');
+    dot.classList.toggle('offline', !driverOnline);
+    text.textContent = driverOnline ? 'ONLINE' : 'OFFLINE';
+    text.style.color = driverOnline ? 'var(--red2)' : 'var(--gray)';
+    toggle.classList.toggle('off', !driverOnline);
+    showToast(driverOnline ? '🟢 You are now online' : '⚫ You are offline');
+  }
+
+  // ============ JOB TIMER ============
+  let timerCount = 28;
+  setInterval(() => {
+    const el = document.getElementById('timerVal');
+    if (!el) return;
+    if (timerCount > 0) timerCount--;
+    else timerCount = 28;
+    el.textContent = timerCount + 's';
+  }, 1000);
+
+  // ============ SNOW PARTICLES ============
+  const canvas = document.getElementById('splashCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const flakes = Array.from({length: 60}, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: Math.random() * 2 + 0.5,
+    s: Math.random() * 0.6 + 0.2,
+    d: Math.random() * 0.4 - 0.2,
+    o: Math.random() * 0.4 + 0.1
+  }));
+
+  function snow() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    flakes.forEach(f => {
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(125,212,240,${f.o})`;
+      ctx.fill();
+      f.y += f.s;
+      f.x += f.d;
+      if (f.y > canvas.height) { f.y = -5; f.x = Math.random() * canvas.width; }
+      if (f.x > canvas.width) f.x = 0;
+      if (f.x < 0) f.x = canvas.width;
+    });
+    requestAnimationFrame(snow);
+  }
+  snow();
+
+  // ============ PWA INSTALL ============
+  let deferredPrompt;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    setTimeout(() => document.getElementById('installBanner').classList.add('show'), 3000);
+  });
+
+  document.getElementById('installBtn').addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') showToast('✅ Plow Now installed!');
+      deferredPrompt = null;
+    }
+    hideInstall();
+  });
+
+  function hideInstall() {
+    document.getElementById('installBanner').classList.remove('show');
+  }
+
+  // ============ SERVICE WORKER ============
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plow Now — On-Demand Snow Removal</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
