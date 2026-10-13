@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join Plow Now — Early Access</title>
+<!--
+  PLOW NOW — real signup page. Replaces the Google Form.
+  Writes directly to the `profiles` table in Supabase.
+
+  SETUP (2 steps, done once):
+  1. In Supabase SQL editor, run:
+       create policy "public signup insert" on profiles
+         for insert with check (true);
+  2. Paste your project's URL + anon key below (Supabase dashboard → Settings → API).
+     NEVER use the service_role key here — the anon key is the correct one for browsers.
+-->
+<style>
+  :root{
+    --navy:#060a14; --navy2:#0c1220; --navy3:#111c30;
+    --ice:#7dd4f0; --ice2:#b8eafc; --ice-dim:#2e6a8a;
+    --red:#e63946; --white:#f0f8ff; --gray:#7a8fa6; --border:#1a2840;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--navy); color:var(--white);
+    font-family:'Barlow',-apple-system,'Segoe UI',sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+    background-image:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(125,212,240,.08), transparent);
+  }
+  .card{
+    width:100%; max-width:480px; background:var(--navy2);
+    border:1px solid var(--border); border-radius:20px; padding:40px 36px;
+    box-shadow:0 24px 80px rgba(0,0,0,.5), 0 0 40px rgba(125,212,240,.06);
+  }
+  .logo{
+    width:56px;height:56px;border-radius:50%;background:var(--navy3);
+    border:1.5px solid var(--ice-dim); display:flex;align-items:center;justify-content:center;
+    font-size:26px; margin-bottom:20px; box-shadow:0 0 24px rgba(125,212,240,.25);
+  }
+  h1{font-family:'Rajdhani','Barlow',sans-serif; font-size:30px; letter-spacing:2px; color:var(--ice); margin-bottom:8px}
+  h1 span{color:var(--red)}
+  p.sub{color:var(--gray); font-size:15px; line-height:1.6; margin-bottom:28px}
+  label{display:block; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gray); margin:18px 0 8px}
+  input[type=text],input[type=email]{
+    width:100%; padding:14px 16px; border-radius:12px; font-size:16px;
+    background:var(--navy3); border:1px solid var(--border); color:var(--white); outline:none;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  input:focus{border-color:var(--ice-dim); box-shadow:0 0 0 3px rgba(125,212,240,.12)}
+  .row{display:flex; gap:12px}
+  .row>div{flex:1}
+  .pills{display:flex; flex-wrap:wrap; gap:10px}
+  .pill{position:relative}
+  .pill input{position:absolute; opacity:0; inset:0; cursor:pointer}
+  .pill span{
+    display:inline-block; padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600;
+    border:1px solid var(--border); background:var(--navy3); color:var(--gray); cursor:pointer;
+    transition:all .2s; user-select:none;
+  }
+  .pill input:checked+span{background:rgba(125,212,240,.12); border-color:var(--ice); color:var(--ice2)}
+  .hp{position:absolute; left:-9999px; opacity:0; height:0} /* honeypot */
+  button{
+    width:100%; margin-top:28px; padding:16px; border:none; border-radius:14px; cursor:pointer;
+    font-size:17px; font-weight:700; letter-spacing:1px; color:#04121c;
+    background:linear-gradient(135deg,var(--ice),var(--ice2));
+    box-shadow:0 8px 28px rgba(125,212,240,.3); transition:transform .15s, box-shadow .2s;
+  }
+  button:hover{transform:translateY(-2px); box-shadow:0 12px 34px rgba(125,212,240,.4)}
+  button:disabled{opacity:.55; cursor:wait; transform:none}
+  .fine{margin-top:16px; font-size:12.5px; color:var(--gray); text-align:center; line-height:1.5}
+  .msg{margin-top:18px; padding:14px 16px; border-radius:12px; font-size:14.5px; line-height:1.5; display:none}
+  .msg.ok{display:block; background:rgba(125,212,240,.1); border:1px solid var(--ice-dim); color:var(--ice2)}
+  .msg.err{display:block; background:rgba(230,57,70,.1); border:1px solid rgba(230,57,70,.4); color:#ffb3b8}
+  .success-panel{text-align:center; padding:12px 0}
+  .success-panel .big{font-size:52px; margin-bottom:12px}
+  .success-panel h2{color:var(--ice); letter-spacing:2px; margin-bottom:10px; font-family:'Rajdhani',sans-serif}
+  .success-panel p{color:var(--gray); line-height:1.7; font-size:15px}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="logo">❄</div>
+    <h1>PLOW <span>NOW</span></h1>
+    <p class="sub">Be first. Get early access. Early members get priority booking, locked-in
+      rates, and a founding member badge in the app. No spam, no credit card — just early access.</p>
+
+    <form id="signup">
+      <label for="name">Full name</label>
+      <input type="text" id="name" autocomplete="name" placeholder="Jane Doe">
+
+      <label for="email">Email address *</label>
+      <input type="email" id="email" required autocomplete="email" placeholder="you@example.com">
+
+      <div class="row">
+        <div>
+          <label for="city">City</label>
+          <input type="text" id="city" autocomplete="address-level2" placeholder="Erie">
+        </div>
+        <div>
+          <label for="state">State</label>
+          <input type="text" id="state" autocomplete="address-level1" placeholder="PA" maxlength="2">
+        </div>
+      </div>
+
+      <label>I am a…</label>
+      <div class="pills">
+        <label class="pill"><input type="radio" name="role" value="customer" checked><span>Customer</span></label>
+        <label class="pill"><input type="radio" name="role" value="driver"><span>Driver</span></label>
+        <label class="pill"><input type="radio" name="role" value="both"><span>Both</span></label>
+        <label class="pill"><input type="radio" name="role" value="following"><span>Just following</span></label>
+      </div>
+
+      <!-- honeypot: bots fill it, humans can't see it -->
+      <input type="text" id="website" class="hp" tabindex="-1" autocomplete="off">
+
+      <button type="submit" id="submitBtn">Join the waitlist</button>
+      <div class="msg" id="msg"></div>
+      <p class="fine">🔒 Your details stay with us. We'll only reach out about launch.</p>
+    </form>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ── Supabase project "plownow" (created Oct 13, 2026) ──
+  const SUPABASE_URL = "https://izclldkuwmtimbhslnii.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_Cx_MwJE_uClYi1uS4bsp1Q_U-HZtUWz";
+  // ──────────────────────────────────────────────────────────────
+
+  const form = document.getElementById('signup');
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('submitBtn');
+  const card = document.getElementById('card');
+
+  function say(text, kind){
+    msg.textContent = text;
+    msg.className = 'msg ' + kind;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // honeypot: silently "succeed" for bots
+    if (document.getElementById('website').value) { showSuccess(); return; }
+
+    if (SUPABASE_URL.includes('PASTE_')) {
+      say('Setup needed: Supabase keys are not configured yet.', 'err');
+      return;
+    }
+
+    const email = document.getElementById('email').value.trim();
+    if (!email) { say('Please enter your email address.', 'err'); return; }
+
+    const role = form.querySelector('input[name=role]:checked').value;
+    btn.disabled = true;
+    btn.textContent = 'Joining…';
+
+    try {
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { error } = await sb.from('profiles').insert({
+        email,
+        full_name: document.getElementById('name').value.trim() || null,
+        city: document.getElementById('city').value.trim() || null,
+        state: document.getElementById('state').value.trim().toUpperCase() || null,
+        is_customer: role === 'customer' || role === 'both',
+        is_driver: role === 'driver' || role === 'both',
+        status: 'waitlist',
+        source: 'site'
+      });
+      if (error) {
+        if (error.code === '23505') {
+          say("You're already on the list — we'll be in touch!", 'ok');
+        } else {
+          throw error;
+        }
+      } else {
+        showSuccess();
+      }
+    } catch (err) {
+      console.error(err);
+      say('Something went wrong. Please try again in a moment.', 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Join the waitlist';
+    }
+  });
+
+  function showSuccess(){
+    card.innerHTML = `
+      <div class="success-panel">
+        <div class="big">❄</div>
+        <h2>YOU'RE IN</h2>
+        <p>Welcome to Plow Now early access.<br>
+        We'll reach out before the Winter 2027 launch with your priority booking link.</p>
+      </div>`;
+  }
+</script>
+</body>
+</html>
