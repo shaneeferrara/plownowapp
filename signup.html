@@ -124,9 +124,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  // ── Supabase project "plownow" (created Oct 13, 2026) ──
-  const SUPABASE_URL = "https://izclldkuwmtimbhslnii.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_Cx_MwJE_uClYi1uS4bsp1Q_U-HZtUWz";
+  // ── Supabase project "plownow" (gttjyxshlseyxworkrrm, created Oct 13, 2026) ──
+  const SUPABASE_URL = "https://gttjyxshlseyxworkrrm.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_flnjwWAwID-Qn7K_sTjdXQ_AOYm1w-c"; // plownow project anon key (public, safe for browsers)
   // ──────────────────────────────────────────────────────────────
 
   const form = document.getElementById('signup');
@@ -144,7 +144,7 @@
     // honeypot: silently "succeed" for bots
     if (document.getElementById('website').value) { showSuccess(); return; }
 
-    if (SUPABASE_URL.includes('PASTE_')) {
+    if (SUPABASE_URL.includes('PASTE_') || SUPABASE_ANON_KEY.includes('PASTE_')) {
       say('Setup needed: Supabase keys are not configured yet.', 'err');
       return;
     }
