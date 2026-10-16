@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="en" data-season="winter">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#060a14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PlowNow / MowNow">
+<link rel="manifest" href="manifest.json">
+<title>Plow Now · Mow Now</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+
+/* ============================================================
+   WINTER THEME (default)
+   ============================================================ */
+[data-season="winter"] {
+  --bg:      #060a14;
+  --bg2:     #0c1220;
+  --bg3:     #111c30;
+  --accent:  #7dd4f0;
+  --accent2: #b8eafc;
+  --dim:     #2e6a8a;
+  --driver:  #e63946;
+  --driver2: #ff6b6b;
+  --white:   #f0f8ff;
+  --gray:    #7a8fa6;
+  --border:  #1a2840;
+  --season-icon: "❄️";
+  --season-label: "WINTER";
+}
+
+/* ============================================================
+   SUMMER THEME
+   ============================================================ */
+[data-season="summer"] {
+  --bg:      #141414;
+  --bg2:     #1e1e1e;
+  --bg3:     #252525;
+  --accent:  #5cb85c;
+  --accent2: #8fd98f;
+  --dim:     #3a7a3a;
+  --driver:  #f5c518;
+  --driver2: #ffd700;
+  --white:   #f5f5f0;
+  --gray:    #8a9080;
+  --border:  #2e2e2e;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html, body {
+  height:100%; width:100%;
+  overflow:hidden;
+  background: var(--bg);
+  color: var(--white);
+  font-family:'Barlow',sans-serif;
+  transition: background 0.4s, color 0.4s;
+}
+
+/* Season transition overlay */
+.season-flash {
+  position:fixed; inset:0; z-index:999;
+  background: var(--accent);
+  opacity:0; pointer-events:none;
+  transition: opacity 0.15s;
+}
+.season-flash.flash { opacity:0.15; }
+
+
+/* ============================================================
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+#app { width:100%; height:100%; position:relative; overflow:hidden; }
+
+/* ============================================================
+   SCREENS
+   ============================================================ */
+.screen {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  background: var(--bg);
+  opacity:0; pointer-events:none;
+  transform:translateX(30px);
+  transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.screen.active { opacity:1; pointer-events:all; transform:translateX(0); }
+.screen.exit-left { opacity:0; transform:translateX(-30px); }
+
+/* ============================================================
+   SPLASH
+   ============================================================ */
+#screen-splash {
+  align-items:center; justify-content:center;
+  overflow:hidden;
+}
+
+[data-season="winter"] #screen-splash {
+  background: radial-gradient(ellipse at 50% 30%, #0f1e3a, #060a14 70%);
+}
+[data-season="summer"] #screen-splash {
+  background: radial-gradient(ellipse at 50% 30%, #1a2a14, #141414 70%);
+}
+
+.splash-canvas { position:absolute; inset:0; pointer-events:none; }
+
+.splash-content {
+  display:flex; flex-direction:column;
+  align-items:center; gap:20px;
+  padding:40px; z-index:2; width:100%;
+}
+
+.splash-logo-ring {
+  width:100px; height:100px;
+  border-radius:50%;
+  background: var(--bg3);
+  border:2px solid var(--dim);
+  display:flex; align-items:center; justify-content:center;
+  font-size:46px;
+  box-shadow:0 0 40px rgba(var(--accent-rgb),0.3);
+  animation:logoPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%,100% { box-shadow:0 0 30px rgba(100,180,100,0.15); }
+  50%      { box-shadow:0 0 60px rgba(100,180,100,0.35); }
+}
+
+.splash-brand {
+  text-align:center;
+  line-height:1;
+}
+
+.splash-brand-main {
+  font-family:'Rajdhani',sans-serif;
+  font-size:52px; font-weight:700;
+  letter-spacing:6px;
+  color: var(--accent);
+}
+
+.splash-brand-main span { color: var(--driver); }
+
+.splash-brand-sub {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px; font-weight:600;
+  letter-spacing:4px; text-transform:uppercase;
+  color: var(--gray);
+  margin-top:6px;
+}
+
+.splash-tagline {
+  font-size:14px; color:var(--gray);
+  text-align:center; line-height:1.6;
+  max-width:280px;
+}
+
+/* ============================================================
+   SEASON TOGGLE (splash)
+   ============================================================ */
+.season-toggle-wrap {
+  width:100%;
+  background: var(--bg3);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:6px;
+  display:flex;
+  margin-bottom:4px;
+}
+
+.season-tab {
+  flex:1; padding:12px;
+  border-radius:10px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:15px; font-weight:700;
+  letter-spacing:2px; text-transform:uppercase;
+  text-align:center; cursor:pointer;
+  transition:all 0.3s;
+  color: var(--gray);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+
+.season-tab.active-winter {
+  background: #0c1220;
+  color: #7dd4f0;
+  border:1px solid #2e6a8a;
+}
+
+.season-tab.active-summer {
+  background: #1e2a1e;
+  color: #5cb85c;
+  border:1px solid #3a7a3a;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn-full {
+  width:100%; padding:16px;
+  border-radius:10px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:17px; font-weight:700;
+  letter-spacing:3px; text-transform:uppercase;
+  border:none; cursor:pointer;
+  transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+}
+.btn-full:active { transform:scale(0.97); }
+
+.btn-accent { background:var(--accent); color:var(--bg); }
+.btn-outline-accent { background:transparent; color:var(--accent); border:1.5px solid var(--dim); }
+.btn-driver { background:var(--driver); color:var(--bg); }
+.btn-outline-driver { background:transparent; color:var(--driver2); border:1.5px solid rgba(245,197,24,0.4); }
+.btn-gray { background:var(--bg3); color:var(--white); border:1px solid var(--border); }
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+.top-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px;
+  padding-top:calc(16px + env(safe-area-inset-top,0px));
+  background:rgba(0,0,0,0.85);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0; position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(10px);
+  transition:background 0.4s, border-color 0.4s;
+}
+
+.top-bar-title {
+  font-family:'Rajdhani',sans-serif;
+  font-size:20px; font-weight:700;
+  letter-spacing:3px;
+  color:var(--accent);
+  transition:color 0.4s;
+}
+.top-bar-title .driver-color { color:var(--driver); }
+
+.top-bar-back {
+  width:36px; height:36px; border-radius:8px;
+  background:var(--bg3); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; cursor:pointer;
+}
+
+.top-bar-action {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px; font-weight:600; letter-spacing:1px;
+  color:var(--accent); cursor:pointer;
+  transition:color 0.4s;
+}
+
+/* ============================================================
+   BOTTOM NAV
+   ============================================================ */
+.bottom-nav {
+  display:flex;
+  background:var(--bg2); border-top:1px solid var(--border);
+  padding:10px 0;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  flex-shrink:0; position:sticky; bottom:0; z-index:50;
+  transition:background 0.4s, border-color 0.4s;
+}
+
+.nav-item {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; gap:3px; cursor:pointer;
+  padding:4px 0; transition:all 0.2s;
+}
+.nav-item:active { transform:scale(0.92); }
+.nav-icon { font-size:22px; }
+.nav-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:600; letter-spacing:1px;
+  text-transform:uppercase; color:var(--gray);
+  transition:color 0.3s;
+}
+.nav-item.nav-active .nav-label { color:var(--accent); }
+.nav-item.nav-active-driver .nav-label { color:var(--driver); }
+
+/* ============ v3: icon helper ============ */
+.ic{display:inline-flex;vertical-align:-3px;line-height:0}
+.ic svg{width:1.2em;height:1.2em}
+.nav-icon .ic svg{width:22px;height:22px}
+.menu-icon .ic svg{width:20px;height:20px}
+.map-vehicle .ic svg{width:28px;height:28px}
+.map-pin .ic svg{width:24px;height:24px}
+.service-btn-icon svg{width:26px;height:26px}
+.top-bar-back .ic svg{width:18px;height:18px}
+.address-icon .ic svg{width:20px;height:20px}
+.profile-avatar .ic svg{width:34px;height:34px}
+.driver-avatar .ic svg{width:22px;height:22px}
+.confirm-circle .ic svg{width:30px;height:30px}
+#searchIcon .ic svg{width:52px;height:52px}
+
+/* ============ v3: sticky booking bar ============ */
+.booking-bar{flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border);
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));z-index:49}
+.booking-bar-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.booking-bar-summary{font-size:12px;color:var(--gray);letter-spacing:1px;text-transform:uppercase}
+.booking-bar-price{font-family:'Rajdhani',sans-serif;font-size:30px;font-weight:700;color:var(--accent);line-height:1}
+.booking-bar-sub{text-align:center;font-size:11px;color:var(--gray);margin-top:8px;letter-spacing:0.5px}
+
+/* ============ v3: job alert hero ============ */
+.alert-hero{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.alert-hero-pay{font-family:'Rajdhani',sans-serif;font-size:54px;font-weight:700;color:var(--driver);line-height:1}
+.alert-hero-dist{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--white)}
+.alert-hero-eta{font-size:12px;color:var(--gray);margin-top:2px}
+.action-stack{display:flex;flex-direction:column;gap:10px;margin:16px 0 4px}
+.action-btn-big{min-height:52px;font-size:17px;width:100%}
+.job-detail{display:none;padding:10px 0 4px;font-size:12px;color:var(--gray);line-height:1.7}
+.job-list-item.open .job-detail{display:block}
+.job-chev{color:var(--gray);transition:transform 0.2s;display:inline-flex}
+.job-list-item.open .job-chev{transform:rotate(90deg)}
+
+/* ============================================================
+   SCREEN BODY
+   ============================================================ */
+.screen-body {
+  flex:1; padding:20px;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+}
+
+/* ============================================================
+   MAP
+   ============================================================ */
+.map-container {
+  height:220px;
+  background:var(--bg3); border-radius:16px;
+  position:relative; overflow:hidden;
+  margin-bottom:20px; border:1px solid var(--border);
+  flex-shrink:0;
+}
+.real-map {
+  position:relative; height:220px; border-radius:16px; overflow:hidden;
+  border:1px solid var(--border); margin-bottom:20px; background:#0e1526; z-index:0;
+  flex-shrink:0;
+}
+.real-map.tall { height:340px; }
+.real-map .leaflet-container { font-family:'Barlow',sans-serif; }
+.addr-search-row { display:flex; gap:8px; margin-bottom:10px; }
+.addr-search-row input {
+  flex:1; background:var(--bg2); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; color:var(--white); font-size:15px; font-family:'Barlow',sans-serif; color-scheme:dark;
+}
+.addr-search-row input:focus { outline:none; border-color:var(--accent); }
+.map-toolbar { display:flex; gap:8px; margin:10px 0; }
+.tool-btn {
+  flex:1; border:1.5px solid var(--border); border-radius:10px; padding:11px;
+  text-align:center; font-size:13.5px; font-weight:600; color:var(--gray);
+  font-family:'Barlow',sans-serif; cursor:pointer; user-select:none;
+}
+.tool-btn:active { transform:scale(0.96); }
+.tool-btn.active { border-color:var(--accent); color:var(--white); background:rgba(125,212,240,0.08); }
+.area-readout {
+  text-align:center; font-size:14px; color:var(--gray); margin:4px 0 2px;
+  font-family:'Barlow',sans-serif;
+}
+.area-readout b { color:var(--accent); font-size:17px; }
+.draw-hint { font-size:12px; color:var(--gray); text-align:center; line-height:1.5; margin-bottom:6px; }
+
+.map-grid-bg {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(125,212,240,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125,212,240,0.05) 1px, transparent 1px);
+  background-size:24px 24px;
+}
+
+[data-season="summer"] .map-grid-bg {
+  background-image:
+    linear-gradient(rgba(92,184,92,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92,184,92,0.07) 1px, transparent 1px);
+}
+
+.map-road-h { position:absolute; left:0; right:0; height:2px; background:rgba(125,212,240,0.1); }
+.map-road-v { position:absolute; top:0; bottom:0; width:2px; background:rgba(125,212,240,0.1); }
+
+[data-season="summer"] .map-road-h { background:rgba(92,184,92,0.12); }
+[data-season="summer"] .map-road-v { background:rgba(92,184,92,0.12); }
+
+.map-vehicle {
+  position:absolute; font-size:28px;
+  filter:drop-shadow(0 0 8px var(--accent));
+  animation:vehicleDrive 4s ease-in-out infinite;
+}
+@keyframes vehicleDrive {
+  0%,100% { transform:translate(0,0); }
+  25%      { transform:translate(12px,-6px); }
+  50%      { transform:translate(20px,0px); }
+  75%      { transform:translate(8px,6px); }
+}
+
+.map-pin {
+  position:absolute; font-size:24px;
+  filter:drop-shadow(0 0 6px var(--driver));
+  animation:pinBounce 2s ease-in-out infinite;
+}
+@keyframes pinBounce {
+  0%,100% { transform:translateY(0); }
+  50%      { transform:translateY(-4px); }
+}
+
+.map-badge {
+  position:absolute; bottom:12px; left:12px;
+  background:rgba(0,0,0,0.8); border:1px solid var(--border);
+  border-radius:8px; padding:6px 12px;
+  font-size:11px; font-weight:600;
+  color:var(--accent); letter-spacing:1px;
+  backdrop-filter:blur(8px);
+}
+
+.map-info {
+  position:absolute; top:12px; right:12px;
+  background:rgba(0,0,0,0.8); border:1px solid var(--border);
+  border-radius:8px; padding:6px 12px;
+  font-size:11px; color:var(--white);
+  backdrop-filter:blur(8px);
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:14px; padding:16px;
+  margin-bottom:14px;
+  transition:background 0.4s, border-color 0.4s;
+}
+
+.card-title {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px; font-weight:600;
+  letter-spacing:3px; text-transform:uppercase;
+  color:var(--gray); margin-bottom:12px;
+}
+
+/* ============================================================
+   SERVICE SELECTOR
+   ============================================================ */
+.service-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+
+.service-btn {
+  background:var(--bg3); border:1.5px solid var(--border);
+  border-radius:12px; padding:14px 8px;
+  text-align:center; cursor:pointer; transition:all 0.2s;
+}
+.service-btn:active { transform:scale(0.95); }
+.service-btn.selected { border-color:var(--accent); background:rgba(92,184,92,0.08); }
+[data-season="winter"] .service-btn.selected { background:rgba(125,212,240,0.08); }
+
+.service-btn-icon { font-size:24px; margin-bottom:6px; }
+.service-btn-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px; font-weight:600; letter-spacing:1px;
+  color:var(--gray);
+}
+.service-btn.selected .service-btn-label { color:var(--accent); }
+.addon-row { display:flex; flex-wrap:wrap; gap:8px; }
+.addon-chip {
+  border:1.5px solid var(--border); border-radius:20px; padding:8px 14px;
+  font-size:13px; color:var(--gray); cursor:pointer; user-select:none;
+  font-family:'Barlow',sans-serif;
+}
+.addon-chip:active { transform:scale(0.95); }
+.addon-chip.selected { border-color:var(--accent); color:var(--white); background:rgba(125,212,240,0.08); }
+.addon-chip .addon-price { color:var(--accent); font-weight:600; }
+
+/* Size grid */
+.size-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+.size-btn {
+  background:var(--bg3); border:1.5px solid var(--border);
+  border-radius:10px; padding:10px; text-align:center; cursor:pointer; transition:all 0.2s;
+}
+.size-btn.selected { border-color:var(--accent); background:rgba(92,184,92,0.08); }
+[data-season="winter"] .size-btn.selected { background:rgba(125,212,240,0.08); }
+.size-btn-label { font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; color:var(--gray); }
+.size-btn.selected .size-btn-label { color:var(--accent); }
+.size-btn-sub { font-size:10px; color:var(--gray); margin-top:2px; }
+
+/* ============================================================
+   PRICE ROW
+   ============================================================ */
+.price-row {
+  display:flex; justify-content:space-between; align-items:center;
+  background:rgba(92,184,92,0.06); border:1px solid rgba(92,184,92,0.15);
+  border-radius:12px; padding:14px 16px; margin-bottom:16px;
+}
+[data-season="winter"] .price-row {
+  background:rgba(125,212,240,0.06); border-color:rgba(125,212,240,0.15);
+}
+.price-label { font-size:13px; color:var(--gray); }
+.price-sub { font-size:10px; color:var(--gray); opacity:0.7; margin-top:2px; }
+.price-amount {
+  font-family:'Rajdhani',sans-serif;
+  font-size:32px; font-weight:700; color:var(--accent); line-height:1;
+}
+
+/* ============================================================
+   DRIVER / PROVIDER CARD
+   ============================================================ */
+.driver-row {
+  display:flex; align-items:center; gap:14px;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:12px; padding:14px; margin-bottom:14px;
+}
+.driver-avatar {
+  width:52px; height:52px; border-radius:50%;
+  background:var(--bg2); border:2px solid var(--dim);
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; flex-shrink:0;
+}
+.driver-info { flex:1; }
+.driver-name { font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:700; color:var(--white); line-height:1; }
+.driver-stars { color:#ffd700; font-size:12px; margin:3px 0; }
+.driver-sub { font-size:11px; color:var(--gray); letter-spacing:0.5px; }
+.eta-box {
+  background:rgba(92,184,92,0.12); border:1px solid var(--dim);
+  border-radius:10px; padding:8px 12px; text-align:center; flex-shrink:0;
+}
+[data-season="winter"] .eta-box { background:rgba(125,212,240,0.12); }
+.eta-num { font-family:'Rajdhani',sans-serif; font-size:26px; font-weight:700; color:var(--accent); line-height:1; }
+.eta-unit { font-size:9px; color:var(--gray); letter-spacing:1px; text-transform:uppercase; }
+
+/* ============================================================
+   PROGRESS
+   ============================================================ */
+.progress-track { height:4px; background:var(--bg3); border-radius:4px; margin-bottom:16px; overflow:hidden; }
+.progress-fill {
+  height:100%;
+  background:linear-gradient(90deg, var(--dim), var(--accent));
+  border-radius:4px; transition:width 0.5s ease;
+}
+
+/* ============================================================
+   STEPS
+   ============================================================ */
+.steps-list { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+.step-row { display:flex; align-items:center; gap:12px; font-size:14px; color:var(--gray); }
+.step-dot { width:10px; height:10px; border-radius:50%; background:var(--border); flex-shrink:0; border:1px solid var(--border); }
+.step-dot.done { background:var(--accent); border-color:var(--accent); }
+.step-dot.active { background:var(--driver); border-color:var(--driver); box-shadow:0 0 8px var(--driver); }
+.step-row.done-step { color:var(--white); }
+.step-row.active-step { color:var(--driver2); font-weight:600; }
+
+/* ============================================================
+   ACTION BUTTONS ROW
+   ============================================================ */
+.action-row { display:flex; gap:12px; margin-bottom:14px; }
+.action-btn {
+  flex:1; padding:14px; border-radius:10px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:14px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+  border:none; cursor:pointer; transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.action-btn:active { transform:scale(0.96); }
+
+/* ============================================================
+   RECEIPT
+   ============================================================ */
+.receipt {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:14px; padding:16px; margin-bottom:14px;
+}
+.receipt-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 0; font-size:13px; color:var(--gray);
+  border-bottom:1px solid rgba(40,40,40,0.6);
+}
+.receipt-row:last-child { border-bottom:none; }
+.receipt-row.total { color:var(--white); font-weight:600; font-size:15px; padding-top:12px; }
+.receipt-row span:last-child { color:var(--accent); }
+
+/* ============================================================
+   STAR RATING
+   ============================================================ */
+.stars-rating { display:flex; justify-content:center; gap:12px; margin:16px 0; }
+.star-btn { font-size:36px; cursor:pointer; transition:transform 0.2s; filter:grayscale(1) opacity(0.4); }
+.star-btn.active { filter:none; transform:scale(1.1); }
+
+/* ============================================================
+   DRIVER DASHBOARD
+   ============================================================ */
+.online-banner {
+  border-radius:12px; padding:14px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+  transition:background 0.4s, border-color 0.4s;
+}
+[data-season="winter"] .online-banner { background:rgba(230,57,70,0.1); border:1px solid rgba(230,57,70,0.25); }
+[data-season="summer"] .online-banner { background:rgba(245,197,24,0.08); border:1px solid rgba(245,197,24,0.25); }
+
+.online-status { display:flex; align-items:center; gap:10px; }
+.status-dot {
+  width:10px; height:10px; border-radius:50%;
+  background:var(--driver);
+  box-shadow:0 0 8px var(--driver);
+  animation:blink 1.5s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.status-dot.offline { background:var(--gray); box-shadow:none; animation:none; }
+.status-text {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:16px; font-weight:700; letter-spacing:2px; color:var(--driver);
+}
+
+.toggle-pill {
+  width:52px; height:28px; background:var(--driver);
+  border-radius:14px; position:relative; cursor:pointer;
+  transition:background 0.3s; flex-shrink:0;
+}
+.toggle-pill.off { background:var(--border); }
+.toggle-pill::after {
+  content:''; position:absolute;
+  top:4px; right:4px; width:20px; height:20px;
+  background:white; border-radius:50%; transition:right 0.3s;
+}
+.toggle-pill.off::after { right:auto; left:4px; }
+
+/* Stats */
+.stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+.stat-box {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:12px; padding:14px; text-align:center;
+}
+.stat-val { font-family:'Rajdhani',sans-serif; font-size:28px; font-weight:700; color:var(--driver); line-height:1; }
+.stat-key { font-size:10px; color:var(--gray); letter-spacing:1.5px; text-transform:uppercase; margin-top:4px; }
+
+/* ============================================================
+   JOB ALERT
+   ============================================================ */
+.job-alert-card {
+  border-radius:16px; padding:20px; margin-bottom:14px;
+  position:relative; overflow:hidden;
+  transition:background 0.4s, border-color 0.4s;
+}
+[data-season="winter"] .job-alert-card { background:linear-gradient(135deg,#150308,var(--bg2)); border:1.5px solid var(--driver); }
+[data-season="summer"] .job-alert-card { background:linear-gradient(135deg,#1a1800,var(--bg2)); border:1.5px solid var(--driver); }
+
+.job-alert-card::before {
+  content:''; position:absolute; top:-30px; right:-30px;
+  width:120px; height:120px;
+  background:radial-gradient(circle, rgba(245,197,24,0.15), transparent 70%);
+}
+[data-season="winter"] .job-alert-card::before {
+  background:radial-gradient(circle, rgba(230,57,70,0.2), transparent 70%);
+}
+
+.alert-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:700; letter-spacing:4px;
+  color:var(--driver2); text-transform:uppercase;
+  margin-bottom:8px; display:flex; align-items:center; gap:8px;
+}
+.alert-address { font-family:'Barlow Condensed',sans-serif; font-size:20px; font-weight:700; color:var(--white); margin-bottom:4px; }
+.alert-detail { font-size:13px; color:var(--gray); margin-bottom:12px; }
+.alert-pay { font-family:'Rajdhani',sans-serif; font-size:40px; font-weight:700; color:var(--driver2); line-height:1; margin-bottom:16px; }
+.alert-timer { text-align:center; font-size:12px; color:var(--gray); margin-top:12px; letter-spacing:1px; }
+.timer-val { color:var(--driver2); font-weight:700; font-size:14px; }
+
+/* ============================================================
+   EARNINGS
+   ============================================================ */
+.earnings-header {
+  text-align:center; padding:20px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:16px; margin-bottom:14px;
+}
+.earnings-amount { font-family:'Rajdhani',sans-serif; font-size:52px; font-weight:700; color:var(--driver); line-height:1; }
+.earnings-label { font-size:11px; color:var(--gray); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+.earnings-change { font-size:13px; color:var(--accent); margin-top:6px; }
+
+.bar-chart {
+  display:flex; align-items:flex-end; gap:6px;
+  height:80px;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:12px; padding:12px 12px 0;
+  margin-bottom:8px;
+}
+.bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.bar-fill { width:100%; border-radius:3px 3px 0 0; background:var(--driver); opacity:0.6; transition:height 0.5s ease; }
+.bar-fill.peak { opacity:1; }
+.bar-day { font-size:9px; color:var(--gray); padding-bottom:6px; }
+
+/* ============================================================
+   JOB LIST
+   ============================================================ */
+.job-list-item {
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:10px; padding:12px 14px; margin-bottom:8px;
+  cursor:pointer; transition:border-color 0.2s;
+}
+.job-list-item:active { border-color:var(--accent); }
+.job-addr { font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:600; color:var(--white); }
+.job-meta { font-size:11px; color:var(--gray); margin-top:2px; }
+.job-pay-val { font-family:'Rajdhani',sans-serif; font-size:20px; font-weight:700; color:var(--driver); }
+
+/* ============================================================
+   PROFILE
+   ============================================================ */
+.profile-header {
+  display:flex; align-items:center; gap:16px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:16px; padding:20px; margin-bottom:14px;
+}
+.profile-avatar {
+  width:64px; height:64px; border-radius:50%;
+  background:var(--bg3); border:2px solid var(--dim);
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; flex-shrink:0;
+}
+.profile-name { font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700; color:var(--white); }
+.profile-email { font-size:13px; color:var(--gray); }
+.profile-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  background:rgba(92,184,92,0.1); border:1px solid var(--dim);
+  border-radius:20px; padding:3px 10px;
+  font-size:10px; color:var(--accent);
+  font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-top:6px;
+}
+[data-season="winter"] .profile-badge { background:rgba(125,212,240,0.1); }
+
+.menu-item {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:12px; padding:16px; margin-bottom:8px;
+  cursor:pointer; transition:border-color 0.2s;
+}
+.menu-item:active { background:var(--bg3); }
+.menu-item-left { display:flex; align-items:center; gap:14px; }
+.menu-icon { font-size:20px; }
+.menu-label { font-size:15px; color:var(--white); font-weight:500; }
+.menu-arrow { color:var(--gray); font-size:16px; }
+
+/* ============================================================
+   ADDRESS INPUT
+   ============================================================ */
+.address-input-wrap {
+  background:var(--bg3); border:1.5px solid var(--border);
+  border-radius:12px; padding:14px 16px;
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:14px; cursor:pointer; transition:border-color 0.2s;
+}
+.address-input-wrap:active { border-color:var(--dim); }
+.address-icon { font-size:20px; flex-shrink:0; }
+.address-text { flex:1; font-size:14px; color:var(--white); }
+.address-sub { font-size:11px; color:var(--gray); margin-top:2px; }
+
+/* ============================================================
+   CONFIRM SCREEN
+   ============================================================ */
+.confirm-circle {
+  width:80px; height:80px; border-radius:50%;
+  background:rgba(92,184,92,0.1); border:2px solid var(--dim);
+  display:flex; align-items:center; justify-content:center;
+  font-size:36px; margin:20px auto 16px;
+  box-shadow:0 0 30px rgba(92,184,92,0.2);
+}
+[data-season="winter"] .confirm-circle { background:rgba(125,212,240,0.1); box-shadow:0 0 30px rgba(125,212,240,0.2); }
+
+.confirm-title {
+  font-family:'Rajdhani',sans-serif; font-size:24px; font-weight:700;
+  color:var(--accent); letter-spacing:2px; text-align:center; margin-bottom:6px;
+}
+.confirm-sub { font-size:13px; color:var(--gray); text-align:center; margin-bottom:20px; }
+
+/* ============================================================
+   SEASON BADGE IN APP
+   ============================================================ */
+.season-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:20px; padding:5px 12px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:700; letter-spacing:2px;
+  text-transform:uppercase; color:var(--accent);
+  cursor:pointer; transition:all 0.3s;
+  margin-bottom:16px;
+}
+
+/* ============================================================
+   MODE TOGGLE (customer/driver)
+   ============================================================ */
+.mode-toggle {
+  display:flex; background:var(--bg3); border:1px solid var(--border);
+  border-radius:10px; padding:4px; margin-bottom:20px;
+}
+.mode-btn {
+  flex:1; padding:10px; border-radius:7px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+  text-align:center; cursor:pointer; transition:all 0.2s; color:var(--gray);
+}
+.mode-btn.active-customer { background:var(--accent); color:var(--bg); }
+.mode-btn.active-driver { background:var(--driver); color:var(--bg); }
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toast {
+  position:fixed; bottom:90px; left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--bg3); border:1px solid var(--dim);
+  border-radius:10px; padding:12px 24px;
+  font-size:13px; color:var(--accent); font-weight:600; letter-spacing:1px;
+  z-index:200; opacity:0; transition:all 0.3s;
+  white-space:nowrap; pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+.consent-line { font-size:13.5px; line-height:1.5; color:var(--white); padding:9px 0 9px 12px; border-left:2px solid var(--accent); margin-bottom:8px; }
+.rule-line { display:flex; gap:10px; font-size:13.5px; line-height:1.5; color:var(--white); margin-bottom:10px; }
+.rule-num { flex-shrink:0; width:24px; height:24px; border-radius:50%; background:var(--bg3); border:1px solid var(--dim); color:var(--accent); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.sig-wrap { background:#f5f5f0; border-radius:10px 10px 0 0; overflow:hidden; }
+#sigCanvas { width:100%; height:150px; display:block; touch-action:none; cursor:crosshair; }
+.sig-bar { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:var(--bg2); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; }
+.sig-clear { background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; letter-spacing:1px; font-weight:700; }
+.range-row { display:flex; align-items:center; gap:12px; }
+.range-row input[type="range"] { flex:1; accent-color:var(--accent); height:28px; }
+.fence-val { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:17px; color:var(--accent); white-space:nowrap; }
+.status-pill { display:inline-block; padding:5px 14px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; white-space:nowrap; }
+.status-pill.onjob { background:rgba(230,57,70,0.12); color:var(--driver); border:1px solid var(--driver); }
+[data-season="summer"] .status-pill.onjob { background:rgba(245,197,24,0.12); }
+.map-home-pin, .map-child-pin { position:absolute; transform:translate(-50%,-50%); z-index:5; }
+.map-home-pin .ic svg { width:26px; height:26px; color:var(--white); }
+.map-child-pin .ic svg { width:28px; height:28px; color:var(--accent); filter:drop-shadow(0 0 6px var(--accent)); }
+.fence-circle { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border:2px dashed var(--accent); border-radius:50%; opacity:0.5; pointer-events:none; z-index:4; }
+.fence-line { display:flex; justify-content:space-between; align-items:center; margin:2px 0 18px; font-size:13px; color:var(--gray); }
+.stepper { display:flex; align-items:center; gap:10px; }
+.step-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:var(--bg2); color:var(--accent); font-size:18px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.step-btn:active { transform:scale(0.94); }
+.alert-banner { display:none; background:rgba(230,57,70,0.14); border:1px solid var(--driver); color:var(--driver); border-radius:10px; padding:12px 14px; font-size:13.5px; font-weight:600; line-height:1.45; margin-bottom:14px; }
+.alert-banner.show { display:block; }
+.test-link { background:none; border:none; color:var(--gray); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:0; margin-top:6px; }
+.btn-full:disabled { opacity:0.35; cursor:not-allowed; }
+.age-pill { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:26px; padding:0 10px; border-radius:14px; background:var(--bg3); border:1px solid var(--border); color:var(--accent); font-size:12px; font-weight:700; }
+.status-pill.onduty { background:rgba(125,212,240,0.1); color:var(--accent); border:1px solid var(--accent); }
+[data-season="summer"] .status-pill.onduty { background:rgba(92,184,92,0.12); color:var(--driver2); border-color:var(--driver); }
+.status-pill.pending { background:rgba(122,143,166,0.1); color:var(--gray); border:1px solid var(--border); }
+.status-pill.submitted { background:rgba(125,212,240,0.1); color:var(--accent); border:1px solid var(--dim); }
+.elig-row { display:flex; align-items:center; gap:10px; }
+.elig-ic { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.elig-ic.met { background:rgba(245,165,36,0.15); color:var(--accent); }
+.elig-ic.met svg { width:13px; height:13px; }
+.elig-ic.unmet { border:1.5px solid var(--gray); }
+.elig-label { font-size:13px; font-weight:700; color:var(--white); }
+.elig-detail { font-size:11.5px; color:var(--gray); }
+.elig-banner { border-radius:10px; padding:10px 14px; font-size:13px; font-weight:700; text-align:center; letter-spacing:0.5px; margin-bottom:12px; }
+.elig-banner.ok { background:rgba(245,165,36,0.14); border:1px solid var(--accent); color:var(--accent); }
+.elig-banner.wait { background:var(--bg3); border:1px solid var(--border); color:var(--gray); }
+.status-pill.paused { background:rgba(122,143,166,0.12); color:var(--gray); border:1px solid var(--border); }
+.offer-paused { opacity:0.55; }
+.sum-row { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+.sum-row:last-child { border-bottom:none; }
+.sum-key { color:var(--gray); }
+.sum-val { color:var(--white); font-weight:600; text-align:right; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Season flash overlay -->
+<div class="season-flash" id="seasonFlash"></div>
+
+<!-- ===================================================
+     AUTH — magic link login
+     =================================================== -->
+<div class="screen" id="screen-auth">
+  <div class="splash-content" style="justify-content:center;min-height:100%;">
+    <div class="top-bar-title" style="font-size:34px;margin-bottom:6px;">PLOW<span class="driver-color">NOW</span></div>
+    <p class="splash-tagline">Log in to book or drive.</p>
+    <div class="card" style="width:100%;margin-top:8px;">
+      <div class="card-title">Email address</div>
+      <input id="authEmail" type="email" inputmode="email" placeholder="you@example.com"
+        style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px 14px;color:var(--white);font-size:16px;color-scheme:dark;" />
+      <button class="btn-full btn-accent" style="margin-top:14px;" onclick="doSendMagicLink()">Send login link</button>
+      <div id="authMsg" style="font-size:13px;color:var(--gray);margin-top:10px;line-height:1.5;"></div>
+    </div>
+    <p style="font-size:12px;color:var(--gray);margin-top:14px;line-height:1.6;text-align:center;">No password needed.<br>We email you a one-tap sign-in link.</p>
+  </div>
+</div>
+
+<!-- ===================================================
+     SPLASH SCREEN
+     =================================================== -->
+<div class="screen active" id="screen-splash">
+  <canvas class="splash-canvas" id="splashCanvas"></canvas>
+  <div class="splash-content">
+
+    <div class="splash-logo-ring" id="splashLogo">❄️</div>
+
+    <div class="splash-brand">
+      <div class="splash-brand-main" id="splashTitle">PLOW<span>NOW</span></div>
+      <div class="splash-brand-sub" id="splashSub">Erie, PA · On-Demand</div>
+    </div>
+
+    <div class="season-toggle-wrap">
+      <div class="season-tab active-winter" id="tabWinter" onclick="setSeason('winter')">❄️ Winter</div>
+      <div class="season-tab" id="tabSummer" onclick="setSeason('summer')">🌿 Summer</div>
+    </div>
+
+    <p class="splash-tagline" id="splashTagline">Book a plow driver in 60 seconds. Erie's first on-demand snow removal app.</p>
+
+    <div style="width:100%;display:flex;flex-direction:column;gap:12px;">
+      <button class="btn-full btn-accent" onclick="setMode('customer');goTo('screen-customer-home')" id="btnCustomer">
+        ❄️ I Need Snow Removed
+      </button>
+      <button class="btn-full btn-outline-accent" onclick="setMode('driver');goTo('screen-driver-dashboard')" id="btnDriver">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span> I'm a Plow Driver
+      </button>
+    </div>
+
+    <p style="font-size:11px;color:var(--gray);letter-spacing:1px;" id="splashFooter">Erie, PA · Launching Winter 2026</p>
+  </div>
+</div>
+
+<!-- ===================================================
+     CUSTOMER HOME
+     =================================================== -->
+<div class="screen" id="screen-customer-home">
+  <div class="top-bar">
+    <div class="top-bar-title" id="homeTopTitle">PLOW<span class="driver-color">NOW</span></div>
+    <div style="font-size:12px;color:var(--gray);"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span> Erie, PA</div>
+    <div class="top-bar-action" onclick="goTo('screen-profile')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div>
+  </div>
+
+  <div class="screen-body">
+    <div class="mode-toggle">
+      <div class="mode-btn active-customer">Customer</div>
+      <div class="mode-btn" onclick="setMode('driver');goTo('screen-driver-dashboard')">Driver</div>
+    </div>
+
+    <!-- Season switcher inside app -->
+    <div class="season-badge" onclick="toggleSeasonInApp()" id="inAppSeasonBadge">❄️ Winter Mode — Tap to switch</div>
+
+    <div class="real-map" id="homeMap"></div>
+
+    <div class="address-input-wrap" onclick="openServiceArea()">
+      <div class="address-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div>
+      <div>
+        <div class="address-text">123 Peach Street</div>
+        <div class="address-sub">Erie, PA 16501 · Tap to change</div>
+      </div>
+      <div style="color:var(--accent);font-size:16px;"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="serviceCardTitle">Select Service</div>
+      <div class="service-grid" id="serviceGrid">
+        <!-- Populated from the services table -->
+      </div>
+      <div class="card-title" style="margin-top:14px;">Add-ons</div>
+      <div class="addon-row" id="addonRow">
+        <!-- Populated from the services table -->
+      </div>
+    </div>
+
+    <div class="price-row">
+      <div>
+        <div class="price-label">Estimated Price</div>
+        <div class="price-sub">Final price confirmed before booking</div>
+      </div>
+      <div class="price-amount" id="priceDisplay">$45</div>
+    </div>
+
+  </div>
+
+  <div class="booking-bar">
+    <div class="booking-bar-row">
+      <div class="booking-bar-summary" id="bookingSummary">Driveway · Small</div>
+      <div class="booking-bar-price" id="bookingPrice">$45</div>
+    </div>
+    <button class="btn-full btn-accent" onclick="submitBooking()" id="bookBtn">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span> Find a Driver
+    </button>
+    <div class="booking-bar-sub">Final price confirmed before booking</div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item nav-active" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="goTo('screen-orders')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Orders</div></div>
+    
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     SERVICE AREA — address lookup + draw the area to service
+     =================================================== -->
+<div class="screen" id="screen-service-area">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-customer-home')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">SERVICE AREA</div>
+    <div style="width:40px;"></div>
+  </div>
+  <div class="screen-body">
+    <div class="addr-search-row">
+      <input id="addrInput" type="text" inputmode="text" placeholder="Street address, Erie PA" />
+      <button class="btn-accent" style="border:none;border-radius:10px;padding:0 18px;font-weight:700;font-family:'Barlow',sans-serif;cursor:pointer;" onclick="geocodeAddress()">Find</button>
+    </div>
+    <div id="addrMsg" style="font-size:12.5px;color:var(--gray);margin-bottom:8px;min-height:18px;"></div>
+    <div class="real-map tall" id="serviceMap"></div>
+    <div class="map-toolbar">
+      <div class="tool-btn" id="drawBtn" onclick="toggleDraw()">✏️ Draw area</div>
+      <div class="tool-btn" onclick="clearDraw()">Clear</div>
+    </div>
+    <div class="draw-hint" id="drawHint">Tap <b>Draw area</b>, then tap the map to outline your driveway / walkway.<br>Tap <b>Draw area</b> again when finished.</div>
+    <div class="area-readout" id="areaReadout">Drawn area: <b>—</b></div>
+    <button class="btn-full btn-accent" style="margin-top:12px;margin-bottom:80px;" onclick="saveServiceArea()">Confirm address &amp; area</button>
+  </div>
+</div>
+
+<!-- ===================================================
+     SEARCHING
+     =================================================== -->
+<div class="screen" id="screen-searching">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-customer-home')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">FINDING DRIVER</div>
+    <div></div>
+  </div>
+  <div class="screen-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;">
+    <div style="width:120px;height:120px;border-radius:50%;border:2px solid var(--dim);display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:24px;position:relative;" id="searchIcon">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span>
+      <div style="position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(92,184,92,0.2);animation:ringExpand 2s ease-out infinite;"></div>
+    </div>
+    <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">Searching Nearby...</div>
+    <div style="font-size:14px;color:var(--gray);text-align:center;margin-bottom:40px;">Finding the best available driver in your area</div>
+    <style>@keyframes ringExpand{0%{transform:scale(1);opacity:0.6;}100%{transform:scale(1.5);opacity:0;}}</style>
+  </div>
+  <div style="padding:20px;">
+    <button class="btn-full btn-accent" onclick="goTo('screen-tracking')" style="display:none;" style="margin-bottom:12px;"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span> Driver Found — Track Now</button>
+    <button class="btn-full btn-gray" onclick="cancelBooking()" style="margin-bottom:20px;">Cancel Search</button>
+  </div>
+</div>
+
+<!-- ===================================================
+     TRACKING
+     =================================================== -->
+<div class="screen" id="screen-tracking">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-customer-home')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">LIVE TRACKING</div>
+    <div class="top-bar-action" onclick="showToast('Support contacted!')">Help</div>
+  </div>
+  <div class="screen-body">
+    <div class="real-map" id="trackMap" style="height:200px;"></div>
+    <div class="map-badge" id="trackBadge">🟢 Driver En Route</div>
+    <div class="driver-row">
+      <div class="driver-avatar">👨</div>
+      <div class="driver-info">
+        <div class="driver-name" id="trackDriverName">Finding your driver…</div>
+        <div class="driver-stars">★★★★★</div>
+        <div class="driver-sub" id="driverEquip">4.9 · 312 jobs · RAM 2500</div>
+      </div>
+      <div class="eta-box"><div class="eta-num">12</div><div class="eta-unit">MIN</div></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:55%"></div></div>
+    <div class="steps-list">
+      <div class="step-row done-step"><div class="step-dot done"></div>Order Confirmed</div>
+      <div class="step-row done-step" id="trackStepDriver"><div class="step-dot done"></div><span id="trackStepDriverTxt">Driver Assigned</span></div>
+      <div class="step-row active-step"><div class="step-dot active"></div>Driver En Route · 12 min</div>
+      <div class="step-row"><div class="step-dot"></div>Service In Progress</div>
+      <div class="step-row"><div class="step-dot"></div>Complete <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span></div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn btn-accent" onclick="showToast('Calling Mike...')">📞 Call</button>
+      <button class="action-btn btn-outline-accent" onclick="showToast('Opening chat...')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-3-.4-4.2-1L3 20l1.2-4.3A8.5 8.5 0 1 1 21 11.5z"/></svg></span> Text</button>
+    </div>
+    <button class="btn-full btn-gray" onclick="showToast('Cancellation policy applies')" style="margin-bottom:80px;">Cancel Order</button>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item nav-active"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Orders</div></div>
+    
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     COMPLETE (Customer)
+     =================================================== -->
+<div class="screen" id="screen-complete">
+  <div class="top-bar">
+    <div class="top-bar-title" id="completeTopTitle">PLOW<span class="driver-color">NOW</span></div>
+    <div></div><div></div>
+  </div>
+  <div class="screen-body">
+    <div class="confirm-circle">✅</div>
+    <div class="confirm-title" id="completeTitle">JOB COMPLETE!</div>
+    <div class="confirm-sub" id="completeSub">Your property is taken care of — enjoy your day</div>
+    <div class="receipt">
+      <div class="receipt-row"><span>Service</span><span id="receiptService">Driveway — Small</span></div>
+      <div class="receipt-row"><span>Driver</span><span id="receiptDriver">—</span></div>
+      <div class="receipt-row"><span>Base Rate</span><span id="receiptBase">$35.00</span></div>
+      <div class="receipt-row"><span>Add-ons</span><span id="receiptAddons">—</span></div>
+      <div class="receipt-row"><span>Tip</span><span id="receiptTip">$0.00</span></div>
+      <div class="receipt-row total"><span>Total Charged</span><span id="receiptTotal">$45.00</span></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div class="card-title" style="text-align:center;" id="rateTitle">Rate your driver</div>
+      <div class="stars-rating">
+        <div class="star-btn active" onclick="rateStar(1)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span></div>
+        <div class="star-btn active" onclick="rateStar(2)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span></div>
+        <div class="star-btn active" onclick="rateStar(3)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span></div>
+        <div class="star-btn active" onclick="rateStar(4)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span></div>
+        <div class="star-btn active" onclick="rateStar(5)"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span></div>
+      </div>
+    </div>
+    <div class="card" style="text-align:center;">
+        <div class="card-title" style="text-align:center;">Add a tip <span style="font-weight:400;font-size:12px;color:var(--gray);">(100% goes to your driver)</span></div>
+        <div class="addon-row" id="tipRow" style="justify-content:center;">
+          <div class="addon-chip" data-tip="0">$0</div>
+          <div class="addon-chip" data-tip="300">$3</div>
+          <div class="addon-chip selected" data-tip="500">$5</div>
+          <div class="addon-chip" data-tip="1000">$10</div>
+        </div>
+      </div>
+      <button class="btn-full btn-accent" onclick="submitReview()" style="margin-bottom:12px;">Submit Review</button>
+    <button class="btn-full btn-outline-accent" onclick="goTo('screen-customer-home')" style="margin-bottom:80px;">Book Again</button>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item nav-active"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Orders</div></div>
+    
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     ORDERS
+     =================================================== -->
+<div class="screen" id="screen-orders">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-customer-home')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">MY ORDERS</div>
+    <div></div>
+  </div>
+  <div class="screen-body">
+    <div id="ordersList"></div>
+    <div style="height:80px;"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item nav-active"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Orders</div></div>
+    
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     PROFILE
+     =================================================== -->
+<div class="screen" id="screen-profile">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goBack()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">PROFILE</div>
+    <div class="top-bar-action" onclick="showToast('Settings saved!')">Edit</div>
+  </div>
+  <div class="screen-body">
+    <div class="profile-header">
+      <div class="profile-avatar"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div>
+      <div>
+        <div class="profile-name" id="profileName">—</div>
+        <div class="profile-email" id="profileEmail">—</div>
+        <div class="profile-badge"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span> Founding Member</div>
+      </div>
+    </div>
+    <div class="menu-item" id="dispatchMenuItem" style="display:none;" onclick="goTo('screen-dispatch')"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg></span></div><div class="menu-label">Dispatcher Board</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div><div class="menu-item" onclick="goTo('screen-orders')"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="menu-label">My Orders</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+    <div class="menu-item" onclick="showToast('Addresses coming soon!')"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span></div><div class="menu-label">Saved Addresses</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+    <div class="menu-item" onclick="showToast('Payment coming soon!')"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span></div><div class="menu-label">Payment Methods</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+    <div class="menu-item" onclick="showToast('Notifications coming soon!')"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span></div><div class="menu-label">Notifications</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+    <div class="menu-item" onclick="showToast('Support coming soon!')"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-3-.4-4.2-1L3 20l1.2-4.3A8.5 8.5 0 1 1 21 11.5z"/></svg></span></div><div class="menu-label">Help & Support</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+    <div class="menu-item" onclick="switchToDriverMode()"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span></div><div class="menu-label">Switch to Driver Mode</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+    <div class="menu-item" onclick="signOut()" style="margin-bottom:80px;"><div class="menu-item-left"><div class="menu-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span></div><div class="menu-label">Sign Out</div></div><div class="menu-arrow"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="goTo('screen-orders')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Orders</div></div>
+    
+    <div class="nav-item nav-active"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     DISPATCH — concierge board (dispatchers only)
+     =================================================== -->
+<div class="screen" id="screen-dispatch">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goHome()"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">DISPATCH</div>
+    <div style="width:40px;"></div>
+  </div>
+  <div class="screen-body">
+    <div class="card-title">Incoming requests</div>
+    <div id="dispatchQueue"></div>
+    <div class="card-title" style="margin-top:14px;">Active jobs</div>
+    <div id="dispatchActive"></div>
+    <div style="height:80px;"></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     DRIVER DASHBOARD
+     =================================================== -->
+<div class="screen" id="screen-driver-dashboard">
+  <div class="top-bar">
+    <div class="top-bar-title" style="color:var(--driver);" id="driverTopTitle">PLOW<span style="color:var(--accent);">NOW</span> <span style="font-size:13px;color:var(--gray);">· Driver</span></div>
+    <div></div>
+    <div class="top-bar-action" onclick="goTo('screen-profile')" style="color:var(--driver);"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div>
+  </div>
+  <div class="screen-body">
+    <div class="mode-toggle">
+      <div class="mode-btn" onclick="setMode('customer');goTo('screen-customer-home')">Customer</div>
+      <div class="mode-btn active-driver">Driver</div>
+    </div>
+
+    <div class="season-badge" onclick="toggleSeasonInApp()" id="driverSeasonBadge">❄️ Winter Mode — Tap to switch</div>
+
+    <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--white);margin-bottom:4px;" id="driverGreeting">Hey 👋</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:16px;" id="driverConditions">Erie, PA · Snow: 4" overnight · Peak demand ⚡</div>
+
+    <div class="online-banner">
+      <div class="online-status">
+        <div class="status-dot" id="statusDot"></div>
+        <div>
+          <div class="status-text" id="statusText">ONLINE</div>
+          <div style="font-size:11px;color:var(--gray);">Tap to go offline</div>
+        </div>
+      </div>
+      <div class="toggle-pill" id="driverToggle" onclick="toggleDriverStatus()"></div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val" id="todayEarnings">$183</div><div class="stat-key">Today</div></div>
+      <div class="stat-box"><div class="stat-val" id="jobsDone">6</div><div class="stat-key">Jobs Done</div></div>
+      <div class="stat-box"><div class="stat-val">4.9</div><div class="stat-key">Rating</div></div>
+      <div class="stat-box"><div class="stat-val">3</div><div class="stat-key">Nearby</div></div>
+    </div>
+
+    <div class="real-map" id="driverMap" style="height:160px;"></div>
+
+    <button class="btn-full btn-driver" onclick="goTo('screen-job-alert')" style="margin-bottom:80px;" id="viewJobsBtn">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span> View Incoming Jobs
+    </button>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item nav-active-driver"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label" style="color:var(--driver);">Home</div></div>
+    <div class="nav-item" onclick="goTo('screen-job-alert')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Jobs</div></div>
+    <div class="nav-item" onclick="goTo('screen-earnings')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span></div><div class="nav-label">Earnings</div></div>
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     JOB ALERT
+     =================================================== -->
+<div class="screen" id="screen-job-alert">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-driver-dashboard')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">MY JOBS</div>
+    <div style="width:40px;"></div>
+  </div>
+  <div class="screen-body">
+    <div id="driverJobsList"></div>
+    <div style="height:80px;"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item nav-active-driver"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label" style="color:var(--driver);">Jobs</div></div>
+    <div class="nav-item" onclick="goTo('screen-earnings')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span></div><div class="nav-label">Earnings</div></div>
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     ACTIVE JOB (Driver)
+     =================================================== -->
+<div class="screen" id="screen-active-job">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-job-alert')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title">ACTIVE JOB</div>
+    <div style="width:40px;"></div>
+  </div>
+  <div class="screen-body">
+    <div class="real-map" id="driverJobMap" style="height:180px;"></div>
+    <div class="card">
+      <div class="card-title" id="djService">—</div>
+      <div style="font-size:14px;color:var(--white);margin-bottom:4px;" id="djAddress">—</div>
+      <div style="font-size:13px;color:var(--gray);margin-bottom:8px;" id="djMeta">—</div>
+      <div class="area-readout" id="djStatus" style="text-align:left;">Status: <b>—</b></div>
+    </div>
+    <div id="djActions" style="margin-bottom:80px;"></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="goTo('screen-job-alert')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Jobs</div></div>
+    <div class="nav-item" onclick="goTo('screen-earnings')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span></div><div class="nav-label">Earnings</div></div>
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     JOB COMPLETE (Driver)
+     =================================================== -->
+<div class="screen" id="screen-job-complete">
+  <div class="top-bar">
+    <div class="top-bar-title" style="color:var(--driver);">JOB COMPLETE</div>
+    <div></div><div></div>
+  </div>
+  <div class="screen-body">
+    <div class="confirm-circle" style="background:rgba(245,197,24,0.1);border-color:var(--driver);"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span></div>
+    <div class="confirm-title" style="color:var(--driver2);">JOB COMPLETE!</div>
+    <div class="confirm-sub" id="driverCompleteSub">Nice work — payout is handled by dispatch.</div>
+    <div class="receipt">
+      <div class="receipt-row"><span>Job</span><span id="completeJobAddr">847 French St — Driveway</span></div>
+      <div class="receipt-row"><span>Customer</span><span id="driverCompleteCust">—</span></div>
+      <div class="receipt-row"><span>Service area</span><span id="completeDuration">—</span></div>
+      <div class="receipt-row"><span>Job total</span><span id="driverCompleteBase">—</span></div>
+      <div class="receipt-row"><span>Customer Tip</span><span id="driverCompleteTip">—</span></div>
+      <div class="receipt-row total"><span>Recorded total</span><span id="driverCompleteTotal">—</span></div>
+    </div>
+    <button class="btn-full btn-driver" onclick="goTo('screen-driver-dashboard')" style="margin-bottom:12px;" id="nextJobBtn">Find Next Job <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span></button>
+    <button class="btn-full btn-gray" onclick="goTo('screen-earnings')" style="margin-bottom:80px;">View Earnings</button>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="goTo('screen-job-alert')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Jobs</div></div>
+    <div class="nav-item nav-active-driver" onclick="goTo('screen-earnings')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span></div><div class="nav-label" style="color:var(--driver);">Earnings</div></div>
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+<!-- ===================================================
+     EARNINGS
+     =================================================== -->
+<div class="screen" id="screen-earnings">
+  <div class="top-bar">
+    <div class="top-bar-back" onclick="goTo('screen-driver-dashboard')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></span></div>
+    <div class="top-bar-title" style="color:var(--driver);">EARNINGS</div>
+    <div></div>
+  </div>
+  <div class="screen-body">
+    <div class="earnings-header">
+      <div class="earnings-label">This Week</div>
+      <div class="earnings-amount">$847</div>
+      <div class="earnings-change">↑ 23% vs last week</div>
+    </div>
+    <div class="bar-chart">
+      <div class="bar-col"><div class="bar-fill" style="height:40%"></div><div class="bar-day">M</div></div>
+      <div class="bar-col"><div class="bar-fill" style="height:55%"></div><div class="bar-day">T</div></div>
+      <div class="bar-col"><div class="bar-fill" style="height:45%"></div><div class="bar-day">W</div></div>
+      <div class="bar-col"><div class="bar-fill peak" style="height:95%"></div><div class="bar-day">Th</div></div>
+      <div class="bar-col"><div class="bar-fill" style="height:75%"></div><div class="bar-day">F</div></div>
+      <div class="bar-col"><div class="bar-fill" style="height:60%"></div><div class="bar-day">Sa</div></div>
+      <div class="bar-col"><div class="bar-fill" style="height:25%"></div><div class="bar-day">Su</div></div>
+    </div>
+    <div class="section-label">Recent Jobs</div>
+     <div id="earningsList"></div>
+    <div class="job-list-item" style="margin-bottom:80px;"><div><div class="job-addr">330 W 8th St</div><div class="job-meta">Yesterday · Driveway</div></div><div class="job-pay-val">$45</div></div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-item" onclick="goHome()"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span></div><div class="nav-label">Home</div></div>
+    <div class="nav-item" onclick="goTo('screen-job-alert')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span></div><div class="nav-label">Jobs</div></div>
+    <div class="nav-item nav-active-driver"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span></div><div class="nav-label" style="color:var(--driver);">Earnings</div></div>
+    <div class="nav-item" onclick="goTo('screen-profile')"><div class="nav-icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span></div><div class="nav-label">Profile</div></div>
+  </div>
+</div>
+
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+</div><!-- end #app -->
+
+<script>
+// ============================================================
+// SUPABASE — backend connection + auth
+// ============================================================
+const SUPABASE_URL = "https://gttjyxshlseyxworkrrm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_flnjwWAwID-Qn7K_sTjdXQ_AOYm1w-c";
+const sb = (window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+if (!sb) {
+  window.addEventListener('DOMContentLoaded', () => {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#7a1f1f;color:#fff;padding:12px;text-align:center;font-size:14px;">' +
+      'Could not reach the Plow Now servers — check your connection and reload.</div>');
+  });
+}
+
+let currentUser = null;      // supabase auth user
+let currentProfile = null;   // row from profiles linked to currentUser
+
+// Ensure a profiles row exists for the logged-in user; link by email if needed.
+async function ensureProfile(user) {
+  // 1. already linked?
+  let { data } = await sb.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+  if (data) return data;
+  // 2. waitlist row with same email? claim it
+  const r2 = await sb.from('profiles').select('*').eq('email', user.email).maybeSingle();
+  if (r2.data) {
+    const r3 = await sb.from('profiles').update({ user_id: user.id, status: 'active' }).eq('id', r2.data.id).select().single();
+    if (!r3.error) return r3.data;
+  }
+  // 3. brand new profile
+  const r4 = await sb.from('profiles').insert({
+    email: user.email, user_id: user.id, status: 'active',
+    is_customer: true, source: 'app'
+  }).select().single();
+  if (r4.error) throw r4.error;
+  return r4.data;
+}
+
+async function sendMagicLink(email) {
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: 'https://plownowapp.com/app.html' }
+  });
+  if (error) throw error;
+}
+
+async function signOut() {
+  stopJobPoll();
+  activeJobId = null; window.activeJob = null;
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null;
+  goTo('screen-auth');
+}
+
+async function doSendMagicLink() {
+  const email = document.getElementById('authEmail').value.trim();
+  const msg = document.getElementById('authMsg');
+  if (!email || !email.includes('@')) { msg.textContent = 'Enter a valid email address.'; return; }
+  msg.textContent = 'Sending…';
+  try {
+    await sendMagicLink(email);
+    msg.innerHTML = 'Check your inbox — tap the login link.<br>It may take a minute to arrive.';
+  } catch (e) {
+    msg.textContent = 'Could not send the link: ' + (e.message || 'try again.');
+  }
+}
+
+// On app load: restore session if the user already logged in
+async function bootAuth() {
+  if (!sb) return false;
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+      currentUser = data.session.user;
+      currentProfile = await ensureProfile(currentUser);
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      goTo('screen-splash');
+      return true;
+    }
+  } catch (e) { /* offline or first run — fall through to auth screen */ }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  goTo('screen-auth');
+  return false;
+}
+// Listen for the magic-link redirect landing back in the app
+if (sb) sb.auth.onAuthStateChange(async (event, session) => {
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+    currentUser = session.user;
+    try { currentProfile = await ensureProfile(currentUser); } catch (e) {}
+    if (!document.getElementById('screen-splash').classList.contains('active') &&
+        !document.getElementById('screen-auth').classList.contains('active')) return;
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    goTo('screen-splash');
+  }
+});
+
+// ============================================================
+// SEASON DATA
+// ============================================================
+const SEASONS = {
+  winter: {
+    icon: '❄️',
+    name: 'PLOWNOW',
+    nameAccent: 'NOW',
+    tagline: "Book a plow driver in 60 seconds. Erie's first on-demand snow removal app.",
+    sub: 'Erie, PA · On-Demand Snow Removal',
+    customerBtn: '❄️ I Need Snow Removed',
+    driverBtn: '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span> I\'m a Plow Driver',
+    footer: 'Erie, PA · Launching Winter 2026',
+    vehicle: '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span>',
+    mapInfo: '❄️ 4" overnight',
+    driverConditions: 'Erie, PA · Snow: 4" overnight · Peak demand ⚡',
+    driverGreeting: 'Hey, Mike 👋',
+    driverEquip: '4.9 · 312 jobs · RAM 2500',
+    seasonBadge: '❄️ Winter Mode — Tap for Summer',
+    services: [
+      { icon:'<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span>', label:'Driveway', prices:[35,55,85] },
+      { icon:'<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="1.8"/><path d="M13 7l-2.5 5 3 2 1 6"/><path d="M13 7l3.5 3 4 1.5"/><path d="M10.5 12L6 14"/></svg></span>', label:'Walkway', prices:[20,30,45] },
+      { icon:'<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span>', label:'Lot',     prices:[85,120,180] }
+    ],
+    alertDetail: 'Driveway · Medium · ~45 min · Snow 6" · 1.2 miles',
+    jobMeta1: 'Walkway · Small · 0.8mi',
+    jobMeta2: 'Parking Lot · 1.5mi',
+    activeDetail: 'Sarah M. · Driveway, Medium',
+    completeJob: '847 French St — Driveway',
+    completeDuration: '42 min',
+    nextJobBtn: 'Find Next Job <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span>',
+    receiptService: 'Driveway — Small',
+    receiptBase: '$35.00',
+    receiptTotal: '$45.00',
+    completeTitle: 'PLOW COMPLETE!',
+    completeSub: 'Your driveway is clear — enjoy the day',
+    earnings1: 'Today · Driveway · 42 min',
+    earnings2: 'Today · Walkway · 18 min',
+    earnings3: 'Yesterday · Parking Lot',
+  },
+  summer: {
+    icon: '🌿',
+    name: 'MOWNOW',
+    nameAccent: 'NOW',
+    tagline: "Book a lawn crew in 60 seconds. Erie's first on-demand lawn care app.",
+    sub: 'Erie, PA · On-Demand Lawn Care',
+    customerBtn: '🌿 I Need Lawn Care',
+    driverBtn: '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 8-7 0 4-3 7-8 7z"/><path d="M12 13c0-4-3-7-8-7 0 4 3 7 8 7z"/></svg></span> I\'m a Lawn Pro',
+    footer: 'Erie, PA · Launching Summer 2027',
+    vehicle: '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h9v8H6z"/><path d="M15 10h3.5L21 13v2h-6z"/><circle cx="9.5" cy="17.5" r="1.7"/><circle cx="17.5" cy="17.5" r="1.7"/><path d="M6 7L3 4"/></svg></span>',
+    mapInfo: '🌡 78°F · Sunny',
+    driverConditions: 'Erie, PA · Sunny · High demand this weekend 🌿',
+    driverGreeting: 'Hey, Mike 👋',
+    driverEquip: '4.9 · 187 jobs · Husqvarna Z254',
+    seasonBadge: '🌿 Summer Mode — Tap for Winter',
+    services: [
+      { icon:'<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19C5 9 12 4 20 4c0 8-5 15-15 15z"/><path d="M5 19c3-6 7-10 11-12"/></svg></span>', label:'Mowing',  prices:[45,65,95] },
+      { icon:'<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.2 7.5L20 19M8.2 16.5L20 5"/></svg></span>', label:'Edging',  prices:[25,35,55] },
+      { icon:'<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19C5 9 12 4 20 4c0 8-5 15-15 15z"/><path d="M5 19c3-6 7-10 11-12"/></svg></span>', label:'Leaves',  prices:[55,80,130] }
+    ],
+    alertDetail: 'Lawn Mowing · Medium · ~50 min · 1.2 miles away',
+    jobMeta1: 'Edging & Trim · Small · 0.8mi',
+    jobMeta2: 'Leaf Removal · Large · 1.5mi',
+    activeDetail: 'Sarah M. · Mowing, Medium',
+    completeJob: '847 French St — Mowing',
+    completeDuration: '50 min',
+    nextJobBtn: 'Find Next Job 🌿',
+    receiptService: 'Lawn Mowing — Medium',
+    receiptBase: '$55.00',
+    receiptTotal: '$70.00',
+    completeTitle: 'MOW COMPLETE!',
+    completeSub: 'Your lawn looks great — enjoy your day',
+    earnings1: 'Today · Mowing · 50 min',
+    earnings2: 'Today · Edging · 22 min',
+    earnings3: 'Yesterday · Leaf Removal',
+  }
+};
+
+let currentSeason = 'winter';
+
+// ============================================================
+// SEASON SWITCHING
+// ============================================================
+function setSeason(season) {
+  currentSeason = season;
+  const html = document.documentElement;
+  html.setAttribute('data-season', season);
+
+  const s = SEASONS[season];
+  const flash = document.getElementById('seasonFlash');
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 300);
+
+  // Splash
+  document.getElementById('splashLogo').textContent = s.icon;
+  document.getElementById('splashTitle').innerHTML = season === 'winter'
+    ? 'PLOW<span>NOW</span>'
+    : 'MOW<span>NOW</span>';
+  document.getElementById('splashSub').textContent = s.sub;
+  document.getElementById('splashTagline').textContent = s.tagline;
+  document.getElementById('btnCustomer').textContent = s.customerBtn;
+  document.getElementById('btnDriver').innerHTML = s.driverBtn;
+  document.getElementById('splashFooter').textContent = s.footer;
+
+  // Season tab active states
+  const tw = document.getElementById('tabWinter');
+  const ts = document.getElementById('tabSummer');
+  tw.className = 'season-tab' + (season === 'winter' ? ' active-winter' : '');
+  ts.className = 'season-tab' + (season === 'summer' ? ' active-summer' : '');
+
+  // Customer home
+  document.getElementById('homeTopTitle').innerHTML = season === 'winter'
+    ? 'PLOW<span class="driver-color">NOW</span>'
+    : 'MOW<span class="driver-color">NOW</span>';
+  document.getElementById('homeMapInfo').textContent = s.mapInfo;
+  document.getElementById('homeVehicle1').innerHTML = s.vehicle;
+  document.getElementById('homeVehicle2').innerHTML = s.vehicle;
+
+  // Service grid (reload from DB so prices follow the season catalog)
+  loadServicesFromDB();
+
+  // Season badges
+  document.getElementById('inAppSeasonBadge').textContent = s.seasonBadge;
+  document.getElementById('driverSeasonBadge').textContent = s.seasonBadge;
+
+  // Driver
+  document.getElementById('driverTopTitle').innerHTML = season === 'winter'
+    ? 'PLOW<span style="color:var(--accent);">NOW</span> <span style="font-size:13px;color:var(--gray);">· Driver</span>'
+    : 'MOW<span style="color:var(--accent);">NOW</span> <span style="font-size:13px;color:var(--gray);">· Driver</span>';
+  document.getElementById('driverGreeting').textContent = s.driverGreeting;
+  document.getElementById('driverConditions').textContent = s.driverConditions;
+  document.getElementById('driverEquip').textContent = s.driverEquip;
+  document.getElementById('driverMapVehicle').innerHTML = s.vehicle;
+
+  // Job alert
+  document.getElementById('alertVehicle').innerHTML = s.vehicle;
+  document.getElementById('alertDetail').textContent = s.alertDetail;
+  document.getElementById('nearbyJob1').textContent = s.jobMeta1;
+  document.getElementById('nearbyJob2').textContent = s.jobMeta2;
+
+  // Active job
+  document.getElementById('activeJobVehicle').innerHTML = s.vehicle;
+  document.getElementById('activeJobDetail').textContent = s.activeDetail;
+
+  // Job complete (driver)
+  document.getElementById('completeJobAddr').textContent = s.completeJob;
+  document.getElementById('completeDuration').textContent = s.completeDuration;
+  document.getElementById('nextJobBtn').innerHTML = s.nextJobBtn;
+
+  // Complete (customer)
+  document.getElementById('completeTitle').textContent = s.completeTitle;
+  document.getElementById('completeSub').textContent = s.completeSub;
+  document.getElementById('receiptService').textContent = s.receiptService;
+  document.getElementById('receiptBase').textContent = s.receiptBase;
+  document.getElementById('receiptTotal').textContent = s.receiptTotal;
+
+  // Tracking
+  document.getElementById('trackVehicle').innerHTML = s.vehicle;
+
+  // Earnings
+  document.getElementById('earningsJob1').textContent = s.earnings1;
+  document.getElementById('earningsJob2').textContent = s.earnings2;
+  document.getElementById('earningsJob3').textContent = s.earnings3;
+
+  updatePrice();
+}
+
+function toggleSeasonInApp() {
+  setSeason(currentSeason === 'winter' ? 'summer' : 'winter');
+  showToast(currentSeason === 'winter' ? '❄️ Switched to Winter Mode' : '🌿 Switched to Summer Mode');
+}
+
+// ============================================================
+// REAL MAPS (Leaflet) + SERVICE AREA DRAWING
+// ============================================================
+const ERIE = [42.1292, -80.0851];
+let booking = {
+  address: '123 Peach Street, Erie, PA 16501',
+  lat: ERIE[0], lng: ERIE[1],
+  areaSqft: 0, polygon: null
+};
+let homeMap = null, homeMarker = null, homePoly = null;
+let serviceMap = null, svcMarker = null;
+let drawMode = false, drawPts = [], drawDots = [], drawLine = null, svcPolygon = null;
+
+function tileLayer() {
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap contributors'
+  });
+}
+
+function initHomeMap() {
+  if (typeof L === 'undefined') return; // leaflet CDN failed — leave placeholder
+  if (!homeMap) {
+    homeMap = L.map('homeMap', { zoomControl: false, attributionControl: false }).setView([booking.lat, booking.lng], 15);
+    tileLayer().addTo(homeMap);
+    homeMarker = L.marker([booking.lat, booking.lng]).addTo(homeMap);
+  }
+  setTimeout(() => homeMap.invalidateSize(), 120);
+}
+
+function refreshHomeMap() {
+  if (!homeMap) return;
+  homeMap.setView([booking.lat, booking.lng], 16);
+  homeMarker.setLatLng([booking.lat, booking.lng]);
+  if (homePoly) { homeMap.removeLayer(homePoly); homePoly = null; }
+  if (booking.polygon && booking.polygon.length >= 3) {
+    homePoly = L.polygon(booking.polygon, { color: '#7dd4f0', weight: 2, fillOpacity: 0.25 }).addTo(homeMap);
+  }
+  setTimeout(() => homeMap.invalidateSize(), 120);
+}
+
+function openServiceArea() {
+  document.getElementById('addrInput').value = booking.address;
+  goTo('screen-service-area');
+  setTimeout(initServiceMap, 100);
+}
+
+function initServiceMap() {
+  if (typeof L === 'undefined') {
+    document.getElementById('addrMsg').textContent = 'Map could not load — check your connection.';
+    return;
+  }
+  if (!serviceMap) {
+    serviceMap = L.map('serviceMap').setView([booking.lat, booking.lng], 17);
+    tileLayer().addTo(serviceMap);
+    svcMarker = L.marker([booking.lat, booking.lng]).addTo(serviceMap);
+    serviceMap.on('click', onServiceMapClick);
+    if (booking.polygon && booking.polygon.length >= 3) {
+      svcPolygon = L.polygon(booking.polygon, { color: '#7dd4f0', weight: 2, fillOpacity: 0.25 }).addTo(serviceMap);
+      document.getElementById('areaReadout').innerHTML = 'Drawn area: <b>' + booking.areaSqft.toLocaleString() + ' sq ft</b>';
+    }
+  } else {
+    serviceMap.setView([booking.lat, booking.lng], Math.max(serviceMap.getZoom(), 17));
+    svcMarker.setLatLng([booking.lat, booking.lng]);
+  }
+  setTimeout(() => serviceMap.invalidateSize(), 150);
+}
+
+async function geocodeAddress() {
+  let q = document.getElementById('addrInput').value.trim();
+  const msg = document.getElementById('addrMsg');
+  if (!q) { msg.textContent = 'Type an address first.'; return; }
+  if (!/erie/i.test(q)) q += ', Erie, PA';
+  msg.textContent = 'Looking up…';
+  try {
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q=' + encodeURIComponent(q));
+    const arr = await r.json();
+    if (!arr.length) { msg.textContent = 'Address not found — try adding a house number.'; return; }
+    const hit = arr[0];
+    booking.lat = parseFloat(hit.lat); booking.lng = parseFloat(hit.lon);
+    booking.address = hit.display_name;
+    serviceMap.setView([booking.lat, booking.lng], 18);
+    svcMarker.setLatLng([booking.lat, booking.lng]);
+    msg.textContent = '✓ ' + hit.display_name.split(',').slice(0, 3).join(',');
+  } catch (e) {
+    msg.textContent = 'Lookup failed — check your connection and try again.';
+  }
+}
+
+function toggleDraw() {
+  drawMode = !drawMode;
+  document.getElementById('drawBtn').classList.toggle('active', drawMode);
+  document.getElementById('drawHint').innerHTML = drawMode
+    ? 'Tap the map to drop points around the area.<br>Tap <b>Draw area</b> again when finished.'
+    : 'Tap <b>Draw area</b>, then tap the map to outline your driveway / walkway.<br>Tap <b>Draw area</b> again when finished.';
+  if (!drawMode) {
+    if (drawPts.length >= 3) finishDraw();
+    else clearDraw();
+  }
+}
+
+function onServiceMapClick(e) {
+  if (!drawMode || !serviceMap) return;
+  drawPts.push(e.latlng);
+  drawDots.push(L.circleMarker(e.latlng, { radius: 5, color: '#7dd4f0', fillColor: '#7dd4f0', fillOpacity: 1 }).addTo(serviceMap));
+  if (drawLine) serviceMap.removeLayer(drawLine);
+  drawLine = L.polyline(drawPts, { color: '#7dd4f0', weight: 2, dashArray: '6 4' }).addTo(serviceMap);
+}
+
+function finishDraw() {
+  if (drawLine) { serviceMap.removeLayer(drawLine); drawLine = null; }
+  drawDots.forEach(d => serviceMap.removeLayer(d)); drawDots = [];
+  if (svcPolygon) serviceMap.removeLayer(svcPolygon);
+  svcPolygon = L.polygon(drawPts, { color: '#7dd4f0', weight: 2, fillOpacity: 0.25 }).addTo(serviceMap);
+  booking.areaSqft = Math.round(polygonSqFt(drawPts));
+  booking.polygon = drawPts.map(p => [p.lat, p.lng]);
+  document.getElementById('areaReadout').innerHTML = 'Drawn area: <b>' + booking.areaSqft.toLocaleString() + ' sq ft</b>';
+  drawPts = [];
+  suggestSizeFromArea();
+}
+
+function clearDraw() {
+  drawMode = false;
+  const btn = document.getElementById('drawBtn');
+  if (btn) btn.classList.remove('active');
+  drawPts = [];
+  if (serviceMap) {
+    drawDots.forEach(d => serviceMap.removeLayer(d));
+    if (drawLine) serviceMap.removeLayer(drawLine);
+    if (svcPolygon) serviceMap.removeLayer(svcPolygon);
+  }
+  drawDots = []; drawLine = null; svcPolygon = null;
+  booking.areaSqft = 0; booking.polygon = null;
+  document.getElementById('areaReadout').innerHTML = 'Drawn area: <b>—</b>';
+}
+
+function polygonSqFt(latlngs) {
+  const R = 6371000, toRad = Math.PI / 180;
+  const lat0 = latlngs.reduce((s, p) => s + p.lat, 0) / latlngs.length * toRad;
+  let a = 0;
+  for (let i = 0; i < latlngs.length; i++) {
+    const p1 = latlngs[i], p2 = latlngs[(i + 1) % latlngs.length];
+    const x1 = p1.lng * toRad * R * Math.cos(lat0), y1 = p1.lat * toRad * R;
+    const x2 = p2.lng * toRad * R * Math.cos(lat0), y2 = p2.lat * toRad * R;
+    a += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a / 2) * 10.7639;
+}
+
+function suggestSizeFromArea() {
+  const tiers = ['plow_small', 'plow_medium', 'plow_large', 'plow_xl'];
+  let sug = 'plow_small';
+  if (booking.areaSqft >= 2500) sug = 'plow_xl';
+  else if (booking.areaSqft >= 1200) sug = 'plow_large';
+  else if (booking.areaSqft >= 500) sug = 'plow_medium';
+  if (tiers.includes(selectedServiceId) && svcById(sug) && sug !== selectedServiceId) {
+    selectedServiceId = sug;
+    buildServiceGridDB();
+    const nm = svcById(sug).name.split('—')[1];
+    showToast('Size set to ' + (nm ? nm.split('(')[0].trim() : sug) + ' based on your drawn area');
+  }
+}
+
+function saveServiceArea() {
+  const short = booking.address.split(',').slice(0, 2).join(',').trim();
+  const at = document.querySelector('.address-text');
+  const as = document.querySelector('.address-sub');
+  if (at) at.textContent = short.length > 34 ? short.slice(0, 34) + '…' : short;
+  if (as) as.textContent = (booking.areaSqft ? booking.areaSqft.toLocaleString() + ' sq ft drawn · ' : '') + 'Tap to change';
+  refreshHomeMap();
+  goTo('screen-customer-home');
+}
+
+// ---- Tracking map: real map centered on the active job ----
+let trackMap = null, trackMarker = null, trackPoly = null;
+function initTrackMap() {
+  if (typeof L === 'undefined') return;
+  const job = window.activeJob;
+  const lat = job && job.lat ? job.lat : booking.lat;
+  const lng = job && job.lng ? job.lng : booking.lng;
+  if (!trackMap) {
+    trackMap = L.map('trackMap', { zoomControl: false, attributionControl: false }).setView([lat, lng], 15);
+    tileLayer().addTo(trackMap);
+    trackMarker = L.marker([lat, lng]).addTo(trackMap);
+  } else {
+    trackMap.setView([lat, lng], 15);
+    trackMarker.setLatLng([lat, lng]);
+  }
+  if (trackPoly) { trackMap.removeLayer(trackPoly); trackPoly = null; }
+  const poly = job && job.service_polygon;
+  if (poly && poly.length >= 3) {
+    trackPoly = L.polygon(poly, { color: '#7dd4f0', weight: 2, fillOpacity: 0.25 }).addTo(trackMap);
+  }
+  const badge = document.getElementById('trackBadge');
+  if (badge && job) badge.textContent = '🟢 ' + statusLabel(job.status);
+  setTimeout(() => trackMap.invalidateSize(), 120);
+}
+
+function statusLabel(s) {
+  return { requested:'Searching for driver', assigned:'Driver assigned', en_route:'Driver en route',
+           on_site:'Driver on site', completed:'Completed', cancelled:'Cancelled' }[s] || s;
+}
+
+// ============================================================
+// BOOKING ENGINE — real jobs in Supabase
+// ============================================================
+let activeJobId = null;
+let pollTimer = null;
+
+async function submitBooking() {
+  if (!currentUser || !currentProfile) { goTo('screen-auth'); return; }
+  const svc = svcById(selectedServiceId);
+  if (!svc) { showToast('Pick a service first.'); return; }
+  const btn = document.getElementById('bookBtn');
+  btn.disabled = true; btn.style.opacity = '0.6';
+  try {
+    const cents = quoteCents();
+    const { data, error } = await sb.from('jobs').insert({
+      customer_id: currentProfile.id,
+      service_id: selectedServiceId,
+      addons: [...selectedAddons],
+      address: booking.address,
+      lat: booking.lat, lng: booking.lng,
+      service_polygon: booking.polygon,
+      area_sqft: booking.areaSqft || null,
+      quoted_cents: cents,
+      season: currentSeason,
+      status: 'requested'
+    }).select().single();
+    if (error) throw error;
+    window.activeJob = data;
+    activeJobId = data.id;
+    goTo('screen-searching');
+    startJobPoll();
+  } catch (e) {
+    showToast('Booking failed: ' + (e.message || 'check connection and try again.'));
+  } finally {
+    btn.disabled = false; btn.style.opacity = '';
+  }
+}
+
+async function cancelBooking() {
+  if (activeJobId) {
+    try { await sb.from('jobs').update({ status: 'cancelled' }).eq('id', activeJobId); } catch (e) {}
+    activeJobId = null;
+    window.activeJob = null;
+  }
+  stopJobPoll();
+  goTo('screen-customer-home');
+}
+
+function startJobPoll() {
+  stopJobPoll();
+  const tick = async () => {
+    if (!activeJobId) return;
+    try {
+      const { data, error } = await sb.from('jobs').select('*').eq('id', activeJobId).maybeSingle();
+      if (error || !data) return;
+      window.activeJob = data;
+      if (data.status === 'cancelled') { stopJobPoll(); activeJobId = null; goTo('screen-customer-home'); return; }
+      if (data.status !== 'requested' && currentScreen === 'screen-searching') {
+        goTo('screen-tracking'); renderTracking(data);
+      } else if (currentScreen === 'screen-tracking') {
+        renderTracking(data);
+      }
+      if (data.status === 'completed' && currentScreen !== 'screen-complete') {
+        stopJobPoll(); goTo('screen-complete'); renderReceipt(data);
+      }
+    } catch (e) { /* transient — next tick retries */ }
+  };
+  pollTimer = setInterval(tick, 8000);
+  tick();
+}
+function stopJobPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+function renderTracking(job) {
+  const badge = document.getElementById('trackBadge');
+  if (badge) badge.textContent = '🟢 ' + statusLabel(job.status);
+  const dn = document.getElementById('trackDriverName');
+  const st = document.getElementById('trackStepDriverTxt');
+  if (job.driver_id) {
+    loadDriverName(job.driver_id).then(n => {
+      if (dn) dn.textContent = n || 'Your driver';
+      if (st) st.textContent = 'Driver Assigned — ' + (n || 'your driver');
+    });
+  } else {
+    if (dn) dn.textContent = 'Finding your driver…';
+    if (st) st.textContent = 'Searching for a driver';
+  }
+  initTrackMap();
+}
+
+async function loadDriverName(driverProfileId) {
+  try {
+    const { data } = await sb.from('profiles').select('full_name').eq('id', driverProfileId).maybeSingle();
+    return data && data.full_name ? data.full_name : null;
+  } catch (e) { return null; }
+}
+
+// ============================================================
+// DRIVER FLOW — assigned jobs, status progression, earnings
+// ============================================================
+let driverActiveJobId = null;
+let driverJobMap = null, driverJobMarker = null, driverJobPoly = null;
+
+async function loadDriverJobs() {
+  if (!currentProfile) return [];
+  try {
+    const { data, error } = await sb.from('jobs').select('*')
+      .eq('driver_id', currentProfile.id)
+      .in('status', ['assigned', 'en_route', 'on_site'])
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  } catch (e) { return []; }
+}
+
+async function refreshDriverDashboard() {
+  if (!currentProfile) return;
+  const jobs = await loadDriverJobs();
+  const n = jobs.length;
+  // job count line under the map
+  let countEl = document.getElementById('driverJobCount');
+  if (!countEl) {
+    const map = document.getElementById('driverMap');
+    countEl = document.createElement('div');
+    countEl.id = 'driverJobCount';
+    countEl.style.cssText = 'font-size:13px;color:var(--gray);margin:-12px 0 14px;text-align:center;';
+    map.after(countEl);
+  }
+  countEl.textContent = n ? n + ' active job' + (n > 1 ? 's' : '') + ' assigned to you' : 'No active jobs — new assignments appear here.';
+  const btn = document.getElementById('viewJobsBtn');
+  if (btn) {
+    // rebuild label cleanly
+    btn.innerHTML = btn.innerHTML.replace(/View (Incoming|My) Jobs(\s*\(\d+\))?/, 'View My Jobs' + (n ? ' (' + n + ')' : ''));
+    if (!/View My Jobs/.test(btn.innerHTML)) btn.innerHTML += 'View My Jobs' + (n ? ' (' + n + ')' : '');
+  }
+  const g = document.getElementById('driverGreeting');
+  if (g && currentProfile.full_name) g.textContent = 'Hey, ' + currentProfile.full_name.split(' ')[0] + ' 👋';
+  renderDriverMap(jobs);
+  renderDriverJobs(jobs);
+}
+
+let driverMap = null;
+function renderDriverMap(jobs) {
+  if (typeof L === 'undefined') return;
+  const pts = jobs.filter(j => j.lat && j.lng);
+  const center = pts.length ? [pts[0].lat, pts[0].lng] : ERIE;
+  if (!driverMap) {
+    driverMap = L.map('driverMap', { zoomControl: false, attributionControl: false }).setView(center, pts.length ? 13 : 11);
+    tileLayer().addTo(driverMap);
+  }
+  // clear old markers
+  driverMap.eachLayer(l => { if (l instanceof L.Marker) driverMap.removeLayer(l); });
+  pts.forEach(j => L.marker([j.lat, j.lng]).addTo(driverMap)
+    .bindPopup((svcById(j.service_id) || {}).name || j.service_id));
+  if (pts.length > 1) {
+    const b = L.latLngBounds(pts.map(j => [j.lat, j.lng]));
+    driverMap.fitBounds(b.pad(0.3));
+  } else {
+    driverMap.setView(center, pts.length ? 14 : 11);
+  }
+  setTimeout(() => driverMap.invalidateSize(), 120);
+}
+
+async function renderDriverJobs(jobs) {
+  const list = document.getElementById('driverJobsList');
+  if (!list) return;
+  jobs = jobs || await loadDriverJobs();
+  if (!jobs.length) {
+    list.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:28px 16px;">' +
+      'No jobs assigned yet.<br><span style="font-size:13px;">New assignments from dispatch will appear here.</span></div>';
+    return;
+  }
+  list.innerHTML = jobs.map(j => {
+    const svc = svcById(j.service_id);
+    return '<div class="card" onclick="openDriverJob(\'' + j.id + '\')" style="cursor:pointer;">' +
+      '<div class="card-title">' + (svc ? svc.name : j.service_id) + '</div>' +
+      '<div style="font-size:14px;color:var(--white);margin:4px 0;">' + j.address.split(',').slice(0, 2).join(',') + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+      '<span style="font-size:13px;color:var(--driver);font-weight:600;">' + statusLabel(j.status) + '</span>' +
+      '<span style="font-size:16px;font-weight:700;color:var(--accent);">' + fmtCents(j.quoted_cents) + '</span>' +
+      '</div></div>';
+  }).join('');
+}
+
+async function openDriverJob(id) {
+  driverActiveJobId = id;
+  try {
+    const { data, error } = await sb.from('jobs').select('*').eq('id', id).maybeSingle();
+    if (error || !data) { showToast('Could not load job.'); return; }
+    window.driverJob = data;
+    goTo('screen-active-job');
+    setTimeout(() => renderDriverActiveJob(data), 80);
+  } catch (e) { showToast('Could not load job.'); }
+}
+
+function renderDriverActiveJob(j) {
+  document.getElementById('djService').textContent = (svcById(j.service_id) || {}).name || j.service_id;
+  document.getElementById('djAddress').textContent = j.address;
+  document.getElementById('djMeta').textContent = fmtCents(j.quoted_cents) +
+    (j.area_sqft ? ' · ' + Number(j.area_sqft).toLocaleString() + ' sq ft' : '') +
+    (j.addons && j.addons.length ? ' · +' + j.addons.length + ' add-on' + (j.addons.length > 1 ? 's' : '') : '');
+  document.getElementById('djStatus').innerHTML = 'Status: <b>' + statusLabel(j.status) + '</b>';
+  const next = { assigned: 'en_route', en_route: 'on_site', on_site: 'completed' }[j.status];
+  const labels = { en_route: '🚗 Start driving — En route', on_site: '📍 Arrived — On site', completed: '✅ Job complete' };
+  document.getElementById('djActions').innerHTML = next
+    ? '<button class="btn-full btn-driver" onclick="driverSetStatus(\'' + next + '\')">' + labels[next] + '</button>'
+    : '';
+  // job map
+  if (typeof L !== 'undefined' && j.lat && j.lng) {
+    if (!driverJobMap) {
+      driverJobMap = L.map('driverJobMap', { zoomControl: false, attributionControl: false }).setView([j.lat, j.lng], 16);
+      tileLayer().addTo(driverJobMap);
+      driverJobMarker = L.marker([j.lat, j.lng]).addTo(driverJobMap);
+    } else {
+      driverJobMap.setView([j.lat, j.lng], 16);
+      driverJobMarker.setLatLng([j.lat, j.lng]);
+    }
+    if (driverJobPoly) { driverJobMap.removeLayer(driverJobPoly); driverJobPoly = null; }
+    if (j.service_polygon && j.service_polygon.length >= 3) {
+      driverJobPoly = L.polygon(j.service_polygon, { color: '#7dd4f0', weight: 2, fillOpacity: 0.25 }).addTo(driverJobMap);
+    }
+    setTimeout(() => driverJobMap.invalidateSize(), 120);
+  }
+}
+
+async function driverSetStatus(next) {
+  try {
+    const { error } = await sb.from('jobs').update({ status: next }).eq('id', driverActiveJobId);
+    if (error) throw error;
+    const { data } = await sb.from('jobs').select('*').eq('id', driverActiveJobId).maybeSingle();
+    if (next === 'completed') {
+      window.driverJob = data;
+      goTo('screen-job-complete');
+      renderDriverComplete(data);
+    } else if (data) {
+      window.driverJob = data;
+      renderDriverActiveJob(data);
+    }
+    refreshDriverDashboard();
+  } catch (e) {
+    showToast('Update failed: ' + (e.message || 'try again.'));
+  }
+}
+
+async function refreshDriverEarnings() {
+  if (!currentProfile) return;
+  try {
+    const { data } = await sb.from('jobs').select('quoted_cents,tip_cents,created_at')
+      .eq('driver_id', currentProfile.id).eq('status', 'completed')
+      .order('created_at', { ascending: false }).limit(50);
+    const jobs = data || [];
+    const today = new Date().toISOString().slice(0, 10);
+    let todayCents = 0, totalCents = 0, todayN = 0;
+    jobs.forEach(j => {
+      const gross = (j.quoted_cents || 0) + (j.tip_cents || 0);
+      totalCents += gross;
+      if ((j.created_at || '').slice(0, 10) === today) { todayCents += gross; todayN++; }
+    });
+    const te = document.getElementById('todayEarnings');
+    if (te) te.textContent = fmtCents(todayCents);
+    const jd = document.getElementById('jobsDone');
+    if (jd) jd.textContent = todayN;
+    const el = document.getElementById('earningsList');
+    if (el) {
+      el.innerHTML = jobs.length ? jobs.slice(0, 10).map(j => {
+        const d = (j.created_at || '').slice(0, 10);
+        return '<div class="job-list-item"><div><div class="job-addr">' + d + '</div>' +
+          '<div class="job-meta">Completed · ' + fmtCents(j.tip_cents || 0) + ' tip</div></div>' +
+          '<div class="job-pay-val">' + fmtCents((j.quoted_cents || 0) + (j.tip_cents || 0)) + '</div></div>';
+      }).join('') : '<div style="color:var(--gray);font-size:13px;">No completed jobs yet.</div>';
+    }
+  } catch (e) { /* offline — leave placeholders */ }
+}
+
+// ============================================================
+// SERVICES + PRICING ENGINE (driven by the services table)
+// ============================================================
+let DB_SERVICES = [];        // all active services for the current season
+let selectedServiceId = null;
+let selectedAddons = new Set();  // service ids of chosen add-ons
+let activeSurge = null;      // surge rule row if one applies (manual for now)
+let seniorDiscount = false; // 55+ self-declared 15% off
+
+const FALLBACK_SERVICES = [
+  { id:'plow_small',  season:'winter', category:'plow',  name:'Driveway — Small (single-car)',  base_price_cents:3500 },
+  { id:'plow_medium', season:'winter', category:'plow',  name:'Driveway — Medium',               base_price_cents:5500 },
+  { id:'plow_large',  season:'winter', category:'plow',  name:'Driveway — Large (multi-car)',     base_price_cents:8500 },
+  { id:'plow_xl',     season:'winter', category:'plow',  name:'Driveway — XL (circular/estate)',  base_price_cents:12000 },
+  { id:'salt_sand',   season:'winter', category:'addon', name:'Salt / sand treatment',           base_price_cents:1500 },
+  { id:'second_pass', season:'winter', category:'addon', name:'Second pass',                     base_price_cents:0 },
+  { id:'priority',    season:'winter', category:'addon', name:'Priority booking',                base_price_cents:1000 },
+];
+
+async function loadServicesFromDB() {
+  if (!sb) { DB_SERVICES = FALLBACK_SERVICES.filter(s => s.season === currentSeason); buildServiceGridDB(); return; }
+  try {
+    const { data, error } = await sb.from('services')
+      .select('*').eq('season', currentSeason).eq('active', true)
+      .order('base_price_cents');
+    if (error) throw error;
+    DB_SERVICES = data || [];
+  } catch (e) {
+    // Offline fallback: locked winter driveway tiers so the app still works
+    DB_SERVICES = FALLBACK_SERVICES.filter(s => s.season === currentSeason);
+  }
+  buildServiceGridDB();
+}
+
+function svcById(id) { return DB_SERVICES.find(s => s.id === id); }
+function fmtCents(c) { return '$' + (c / 100).toFixed(c % 100 === 0 ? 0 : 2); }
+
+function buildServiceGridDB() {
+  const grid = document.getElementById('serviceGrid');
+  const addons = document.getElementById('addonRow');
+  grid.innerHTML = ''; addons.innerHTML = '';
+  const mains = DB_SERVICES.filter(s => s.category !== 'addon');
+  const addonSvcs = DB_SERVICES.filter(s => s.category === 'addon');
+  if (!selectedServiceId || !svcById(selectedServiceId)) {
+    selectedServiceId = mains.length ? mains[0].id : null;
+  }
+  selectedAddons = new Set([...selectedAddons].filter(id => svcById(id)));
+  mains.forEach(svc => {
+    const div = document.createElement('div');
+    div.className = 'service-btn' + (svc.id === selectedServiceId ? ' selected' : '');
+    div.dataset.svc = svc.id;
+    const short = svc.name.split('—')[0].split('(')[0].trim();
+    div.innerHTML = '<div class="service-btn-label">' + short + '</div>' +
+      '<div style="font-size:12px;color:var(--accent);font-weight:600;">' + fmtCents(svc.base_price_cents) + '</div>';
+    div.onclick = () => { selectedServiceId = svc.id; buildServiceGridDB(); };
+    grid.appendChild(div);
+  });
+  addonSvcs.forEach(svc => {
+    const chip = document.createElement('div');
+    chip.className = 'addon-chip' + (selectedAddons.has(svc.id) ? ' selected' : '');
+    let priceTxt = fmtCents(svc.base_price_cents);
+    if (svc.id === 'second_pass') priceTxt = '50% of job';
+    chip.innerHTML = svc.name.split('(')[0].trim() + ' <span class="addon-price">+' + priceTxt + '</span>';
+    chip.onclick = () => {
+      if (selectedAddons.has(svc.id)) selectedAddons.delete(svc.id);
+      else selectedAddons.add(svc.id);
+      buildServiceGridDB();
+    };
+    addons.appendChild(chip);
+  });
+  updatePrice();
+}
+
+// Pricing engine: base + add-ons, surge multiplier, senior discount. Returns cents.
+function quoteCents() {
+  const svc = svcById(selectedServiceId);
+  if (!svc) return 0;
+  let total = svc.base_price_cents;
+  selectedAddons.forEach(id => {
+    if (id === 'second_pass') total += Math.round(svc.base_price_cents * 0.5);
+    else { const a = svcById(id); if (a) total += a.base_price_cents; }
+  });
+  if (activeSurge) total = Math.round(total * activeSurge.multiplier_bps / 10000);
+  if (seniorDiscount) total = Math.round(total * 0.85);
+  return total;
+}
+
+function selectService(el) { // legacy shim (service grid now rebuilt by buildServiceGridDB)
+  const id = el.dataset && el.dataset.svc;
+  if (id) { selectedServiceId = id; buildServiceGridDB(); }
+}
+function selectSize(el) { /* retired: tiers are services now */ }
+
+function updatePrice() {
+  const svc = svcById(selectedServiceId);
+  const cents = quoteCents();
+  document.getElementById('priceDisplay').textContent = fmtCents(cents);
+  const bp = document.getElementById('bookingPrice');
+  if (bp) bp.textContent = fmtCents(cents);
+  const bs = document.getElementById('bookingSummary');
+  if (bs) {
+    const short = svc ? svc.name.split('—')[0].split('(')[0].trim() : '';
+    const adn = selectedAddons.size ? ' +' + selectedAddons.size + ' add-on' + (selectedAddons.size > 1 ? 's' : '') : '';
+    bs.textContent = (short + adn).trim() || 'Select a service';
+  }
+}
+
+// ============================================================
+// NEARBY JOB EXPAND
+// ============================================================
+function toggleNearby(el) {
+  el.classList.toggle('open');
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let currentScreen = 'screen-splash';
+let prevScreen = null;
+
+let userMode = 'customer'; // 'customer' | 'driver' — which side of the app the user is on
+function setMode(m) { userMode = m; }
+function goHome() {
+  goTo(userMode === 'driver' ? 'screen-driver-dashboard' : 'screen-customer-home');
+}
+function goTo(screenId) {  const current = document.getElementById(currentScreen);
+  const next = document.getElementById(screenId);
+  if (!next || screenId === currentScreen) return;
+  prevScreen = currentScreen;
+  current.classList.add('exit-left');
+  current.classList.remove('active');
+  setTimeout(() => current.classList.remove('exit-left'), 350);
+  next.style.transform = 'translateX(30px)';
+  next.classList.add('active');
+  setTimeout(() => next.style.transform = '', 10);
+  currentScreen = screenId;
+  next.scrollTop = 0;
+  // lazy-init real maps when their screens appear
+  if (screenId === 'screen-customer-home') setTimeout(initHomeMap, 60);
+  if (screenId === 'screen-tracking') setTimeout(initTrackMap, 60);
+  // refresh live data
+  if (screenId === 'screen-driver-dashboard') { setTimeout(refreshDriverDashboard, 60); setTimeout(refreshDriverEarnings, 60); }
+  if (screenId === 'screen-job-alert') setTimeout(() => renderDriverJobs(), 60);
+  if (screenId === 'screen-earnings') setTimeout(refreshDriverEarnings, 60);
+  if (screenId === 'screen-orders') setTimeout(renderCustomerOrders, 60);
+  if (screenId === 'screen-dispatch') setTimeout(renderDispatchQueue, 60);
+  if (screenId === 'screen-profile') setTimeout(renderProfile, 60);
+}
+
+function goBack() {
+  if (prevScreen) goTo(prevScreen);
+  else goTo('screen-customer-home');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// STARS
+// ============================================================
+let selectedStars = 5, selectedTipCents = 500;
+function rateStar(n) {
+  selectedStars = n;
+  document.querySelectorAll('.star-btn').forEach((s, i) => s.classList.toggle('active', i < n));
+}
+function initTipRow() {
+  document.querySelectorAll('#tipRow .addon-chip').forEach(c => {
+    c.onclick = () => {
+      document.querySelectorAll('#tipRow .addon-chip').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected');
+      selectedTipCents = parseInt(c.dataset.tip, 10) || 0;
+      const rt = document.getElementById('receiptTip');
+      if (rt) rt.textContent = fmtCents(selectedTipCents);
+      const tot = document.getElementById('receiptTotal');
+      if (tot && window.activeJob) tot.textContent = fmtCents(window.activeJob.quoted_cents + selectedTipCents);
+    };
+  });
+}
+async function submitReview() {
+  if (activeJobId) {
+    try {
+      await sb.from('jobs').update({ rating: selectedStars, tip_cents: selectedTipCents }).eq('id', activeJobId);
+    } catch (e) { /* non-fatal */ }
+  }
+  showToast('Thanks for the review!');
+  activeJobId = null; window.activeJob = null;
+  goTo('screen-customer-home');
+}
+function renderReceipt(j) {
+  const svc = svcById(j.service_id);
+  document.getElementById('receiptService').textContent = svc ? svc.name : j.service_id;
+  document.getElementById('receiptBase').textContent = fmtCents(j.quoted_cents);
+  const addonNames = (j.addons || []).map(id => { const a = svcById(id); return a ? a.name.split('(')[0].trim() : id; });
+  document.getElementById('receiptAddons').textContent = addonNames.length ? addonNames.join(', ') : 'None';
+  document.getElementById('receiptTip').textContent = fmtCents(j.tip_cents || 0);
+  document.getElementById('receiptTotal').textContent = fmtCents(j.quoted_cents + (j.tip_cents || 0));
+  if (j.driver_id) loadDriverName(j.driver_id).then(n => {
+    const rd = document.getElementById('receiptDriver');
+    if (rd) rd.textContent = n || 'Your driver';
+    const rt = document.getElementById('rateTitle');
+    if (rt) rt.textContent = 'Rate ' + (n || 'your driver');
+  });
+  selectedStars = j.rating || 5; selectedTipCents = j.tip_cents || 0;
+  rateStar(selectedStars);
+  initTipRow();
+  document.querySelectorAll('#tipRow .addon-chip').forEach(c =>
+    c.classList.toggle('selected', parseInt(c.dataset.tip, 10) === selectedTipCents));
+}
+
+// ============================================================
+// DRIVER TOGGLE
+// ============================================================
+let driverOnline = true;
+function toggleDriverStatus() {
+  driverOnline = !driverOnline;
+  document.getElementById('statusDot').classList.toggle('offline', !driverOnline);
+  document.getElementById('statusText').textContent = driverOnline ? 'ONLINE' : 'OFFLINE';
+  document.getElementById('statusText').style.color = driverOnline ? 'var(--driver)' : 'var(--gray)';
+  document.getElementById('driverToggle').classList.toggle('off', !driverOnline);
+  showToast(driverOnline ? '🟢 You are now online' : '⚫ You are offline');
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+let timerCount = 28;
+setInterval(() => {
+  const el = document.getElementById('timerVal');
+  if (!el) return;
+  timerCount = timerCount > 0 ? timerCount - 1 : 28;
+  el.textContent = timerCount + 's';
+}, 1000);
+
+// ============================================================
+// PARTICLES
+// ============================================================
+const canvas = document.getElementById('splashCanvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const particles = Array.from({length:60}, () => ({
+  x: Math.random() * window.innerWidth,
+  y: Math.random() * window.innerHeight,
+  r: Math.random() * 2 + 0.5,
+  s: Math.random() * 0.6 + 0.2,
+  d: Math.random() * 0.4 - 0.2,
+  o: Math.random() * 0.4 + 0.1
+}));
+
+function animateParticles() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const isSummer = currentSeason === 'summer';
+  particles.forEach(p => {
+    ctx.beginPath();
+    if (isSummer) {
+      // Floating leaves/petals for summer
+      ctx.arc(p.x, p.y, p.r * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(92,184,92,${p.o * 0.6})`;
+    } else {
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(125,212,240,${p.o})`;
+    }
+    ctx.fill();
+    p.y += p.s;
+    p.x += isSummer ? Math.sin(p.y * 0.02) * 0.5 : p.d;
+    if (p.y > canvas.height) { p.y = -5; p.x = Math.random() * canvas.width; }
+    if (p.x > canvas.width) p.x = 0;
+    if (p.x < 0) p.x = canvas.width;
+  });
+  requestAnimationFrame(animateParticles);
+}
+animateParticles();
+
+// ============================================================
+// PROFILE, ORDERS, DISPATCH
+// ============================================================
+function renderProfile() {
+  if (!currentProfile) return;
+  const nm = document.getElementById('profileName');
+  const em = document.getElementById('profileEmail');
+  if (nm) nm.textContent = currentProfile.full_name || 'Plow Now member';
+  if (em) em.textContent = currentProfile.email || '';
+  const di = document.getElementById('dispatchMenuItem');
+  if (di) di.style.display = currentProfile.is_dispatcher ? '' : 'none';
+}
+
+async function switchToDriverMode() {
+  if (currentProfile && !currentProfile.is_driver) {
+    try {
+      const { data, error } = await sb.from('profiles').update({ is_driver: true }).eq('id', currentProfile.id).select().single();
+      if (!error && data) currentProfile = data;
+    } catch (e) { /* non-fatal */ }
+  }
+  setMode('driver');
+  goTo('screen-driver-dashboard');
+}
+
+async function renderCustomerOrders() {
+  const list = document.getElementById('ordersList');
+  if (!list || !currentProfile) return;
+  list.innerHTML = '<div style="text-align:center;color:var(--gray);padding:24px;">Loading…</div>';
+  try {
+    const { data } = await sb.from('jobs').select('*')
+      .eq('customer_id', currentProfile.id).order('created_at', { ascending: false }).limit(30);
+    const jobs = data || [];
+    if (!jobs.length) {
+      list.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:24px;">No bookings yet.</div>';
+      return;
+    }
+    list.innerHTML = jobs.map(j => {
+      const svc = svcById(j.service_id);
+      return '<div class="card" onclick="trackExistingJob(\'' + j.id + '\')" style="cursor:pointer;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div class="card-title" style="margin:0;">' + (svc ? svc.name.split('—')[0].trim() : j.service_id) + '</div>' +
+        '<span style="font-size:13px;color:var(--accent);font-weight:600;">' + statusLabel(j.status) + '</span></div>' +
+        '<div style="font-size:13px;color:var(--gray);margin-top:4px;">' + j.address.split(',').slice(0, 2).join(',') +
+        ' · ' + fmtCents(j.quoted_cents) + '</div></div>';
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="card" style="text-align:center;color:var(--gray);padding:24px;">Could not load orders.</div>';
+  }
+}
+
+async function trackExistingJob(id) {
+  try {
+    const { data } = await sb.from('jobs').select('*').eq('id', id).maybeSingle();
+    if (!data) return;
+    window.activeJob = data; activeJobId = id;
+    if (data.status === 'requested') { goTo('screen-searching'); startJobPoll(); }
+    else if (data.status === 'completed') { goTo('screen-complete'); renderReceipt(data); }
+    else { goTo('screen-tracking'); renderTracking(data); startJobPoll(); }
+  } catch (e) { showToast('Could not load job.'); }
+}
+
+// ---- Dispatcher ----
+async function renderDispatchQueue() {
+  const q = document.getElementById('dispatchQueue');
+  const a = document.getElementById('dispatchActive');
+  if (!q || !currentProfile || !currentProfile.is_dispatcher) return;
+  q.innerHTML = '<div style="color:var(--gray);font-size:13px;">Loading…</div>';
+  try {
+    const { data } = await sb.from('jobs').select('*')
+      .in('status', ['requested', 'assigned', 'en_route', 'on_site'])
+      .order('created_at', { ascending: true });
+    const jobs = data || [];
+    // attach customer names (dispatcher can read all profiles)
+    try {
+      const custIds = [...new Set(jobs.map(j => j.customer_id))];
+      if (custIds.length) {
+        const { data: profs } = await sb.from('profiles').select('id,full_name,phone').in('id', custIds);
+        const byId = Object.fromEntries((profs || []).map(p => [p.id, p]));
+        jobs.forEach(j => {
+          const p = byId[j.customer_id];
+          if (p) j._custName = (p.full_name || 'Customer') + (p.phone ? ' · ' + p.phone : '');
+        });
+      }
+    } catch (e) { /* names optional */ }
+    const incoming = jobs.filter(j => j.status === 'requested');
+    const active = jobs.filter(j => j.status !== 'requested');
+    q.innerHTML = incoming.length ? incoming.map(dispatchCardHTML).join('')
+      : '<div class="card" style="color:var(--gray);font-size:13.5px;">No incoming requests. 🎉</div>';
+    a.innerHTML = active.length ? active.map(dispatchCardHTML).join('')
+      : '<div class="card" style="color:var(--gray);font-size:13.5px;">Nothing in progress.</div>';
+  } catch (e) {
+    q.innerHTML = '<div class="card" style="color:var(--gray);">Could not load queue.</div>';
+  }
+}
+
+function dispatchCardHTML(j) {
+  const svc = svcById(j.service_id);
+  const cust = j._custName || '';
+  return '<div class="card" id="dq-' + j.id + '">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+    '<div class="card-title" style="margin:0;">' + (svc ? svc.name : j.service_id) + '</div>' +
+    '<span style="font-size:12px;font-weight:700;color:var(--accent);">' + statusLabel(j.status).toUpperCase() + '</span></div>' +
+    '<div style="font-size:13.5px;color:var(--white);margin:6px 0 2px;">' + j.address + '</div>' +
+    '<div style="font-size:12.5px;color:var(--gray);">' + fmtCents(j.quoted_cents) +
+    (j.area_sqft ? ' · ' + Number(j.area_sqft).toLocaleString() + ' sq ft' : '') +
+    (j.addons && j.addons.length ? ' · +' + j.addons.length + ' add-ons' : '') +
+    (cust ? ' · ' + cust : '') + '</div>' +
+    (j.notes ? '<div style="font-size:12.5px;color:var(--gray);margin-top:4px;">📝 ' + j.notes + '</div>' : '') +
+    '<div class="map-toolbar" style="margin-top:10px;">' +
+    (j.status === 'requested'
+      ? '<div class="tool-btn" onclick="dispatchAssignUI(\'' + j.id + '\')">Assign driver</div>'
+      : dispatchProgressButtons(j)) +
+    '</div>' +
+    '<div id="dq-assign-' + j.id + '"></div>' +
+    '</div>';
+}
+
+function dispatchProgressButtons(j) {
+  const next = { assigned: 'en_route', en_route: 'on_site', on_site: 'completed' }[j.status];
+  if (!next) return '';
+  const labels = { en_route: '→ En route', on_site: '→ On site', completed: '→ Completed' };
+  return '<div class="tool-btn" onclick="dispatchSetStatus(\'' + j.id + '\',\'' + next + '\')">' + labels[next] + '</div>';
+}
+
+async function dispatchSetStatus(id, next) {
+  try {
+    const { error } = await sb.from('jobs').update({ status: next }).eq('id', id);
+    if (error) throw error;
+    renderDispatchQueue();
+  } catch (e) { showToast('Update failed: ' + (e.message || '')); }
+}
+
+async function dispatchAssignUI(jobId) {
+  const box = document.getElementById('dq-assign-' + jobId);
+  box.innerHTML = '<div style="font-size:12.5px;color:var(--gray);">Loading drivers…</div>';
+  try {
+    const { data } = await sb.from('profiles').select('id,full_name,phone')
+      .eq('is_driver', true).eq('status', 'active').order('full_name');
+    const drivers = data || [];
+    if (!drivers.length) { box.innerHTML = '<div style="font-size:12.5px;color:var(--gray);">No active drivers on file.</div>'; return; }
+    box.innerHTML = '<div style="font-size:12.5px;color:var(--gray);margin:6px 0;">Tap a driver to assign:</div>' +
+      drivers.map(d => '<div class="tool-btn" style="margin-bottom:6px;" onclick="dispatchAssign(\'' + jobId + '\',\'' + d.id + '\')">' +
+        (d.full_name || 'Driver') + (d.phone ? ' · ' + d.phone : '') + '</div>').join('');
+  } catch (e) { box.innerHTML = '<div style="font-size:12.5px;color:var(--gray);">Could not load drivers.</div>'; }
+}
+
+async function dispatchAssign(jobId, driverId) {
+  try {
+    const { error } = await sb.from('jobs').update({ driver_id: driverId, status: 'assigned' }).eq('id', jobId);
+    if (error) throw error;
+    showToast('Driver assigned ✓');
+    renderDispatchQueue();
+  } catch (e) { showToast('Assign failed: ' + (e.message || '')); }
+}
+
+function renderDriverComplete(j) {
+  document.getElementById('completeJobAddr').textContent =
+    (svcById(j.service_id) ? svcById(j.service_id).name.split('—')[0].trim() : j.service_id) +
+    ' — ' + j.address.split(',').slice(0, 2).join(',');
+  document.getElementById('completeDuration').textContent =
+    j.area_sqft ? Number(j.area_sqft).toLocaleString() + ' sq ft' : '—';
+  document.getElementById('driverCompleteBase').textContent = fmtCents(j.quoted_cents);
+  document.getElementById('driverCompleteTip').textContent = fmtCents(j.tip_cents || 0);
+  document.getElementById('driverCompleteTotal').textContent = fmtCents(j.quoted_cents + (j.tip_cents || 0));
+  // customer name (best effort — RLS may hide it)
+  if (j.customer_id) {
+    sb.from('profiles').select('full_name').eq('id', j.customer_id).maybeSingle().then(r => {
+      if (r.data && r.data.full_name) document.getElementById('driverCompleteCust').textContent = r.data.full_name;
+    }).catch(() => {});
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+bootAuth();
+loadServicesFromDB();
+
+</script>
+</body>
+</html>
